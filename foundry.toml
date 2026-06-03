@@ -1,0 +1,16 @@
+[profile.default]
+src = "src"
+script = "script"
+test = "test"
+out = "out"
+libs = ["lib"]
+solc = "0.8.27"
+optimizer = true
+optimizer_runs = 800
+evm_version = "cancun"
+
+[rpc_endpoints]
+mainnet = "${MAINNET_RPC_URL}"
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }

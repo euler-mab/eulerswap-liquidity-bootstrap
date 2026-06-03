@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E1117"/>
+      <stop offset="1" stop-color="#070809"/>
+    </linearGradient>
+    <marker id="a" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6B7480"/>
+    </marker>
+    <marker id="af" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2EE6A8"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <text x="100" y="100" fill="#FFFFFF" font-size="52" font-weight="700">Then turn it into a flywheel</text>
+  <text x="100" y="148" fill="#8A93A0" font-size="27">Let the borrowable vaults take ETH, BTC and other collateral &#8212; organic demand compounds</text>
+
+  <!-- step boxes -->
+  <g>
+    <rect x="90" y="220" width="330" height="150" rx="16" fill="#11151B" stroke="#243040" stroke-width="2"/>
+    <text x="255" y="285" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">Accept ETH / BTC</text>
+    <text x="255" y="318" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">as collateral</text>
+
+    <rect x="480" y="220" width="330" height="150" rx="16" fill="#11151B" stroke="#243040" stroke-width="2"/>
+    <text x="645" y="285" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">Outsiders borrow</text>
+    <text x="645" y="318" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">USDC &amp; USDnew</text>
+
+    <rect x="870" y="220" width="330" height="150" rx="16" fill="#11151B" stroke="#243040" stroke-width="2"/>
+    <text x="1035" y="285" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">They pay interest &#8212;</text>
+    <text x="1035" y="318" fill="#2EE6A8" font-size="25" text-anchor="middle" font-weight="600">lenders earn yield</text>
+
+    <rect x="1260" y="220" width="250" height="150" rx="16" fill="#11151B" stroke="#243040" stroke-width="2"/>
+    <text x="1385" y="285" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">More supply,</text>
+    <text x="1385" y="318" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">deeper market</text>
+  </g>
+
+  <!-- arrows between -->
+  <line x1="425" y1="295" x2="475" y2="295" stroke="#6B7480" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="815" y1="295" x2="865" y2="295" stroke="#6B7480" stroke-width="3" marker-end="url(#a)"/>
+  <line x1="1205" y1="295" x2="1255" y2="295" stroke="#6B7480" stroke-width="3" marker-end="url(#a)"/>
+
+  <!-- feedback loop -->
+  <path d="M1385,372 C1385,462 645,462 645,374" fill="none" stroke="#2EE6A8" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" marker-end="url(#af)"/>
+  <text x="1015" y="505" fill="#2EE6A8" font-size="22" text-anchor="middle">real yield pulls in more lenders &#8212; and it compounds</text>
+
+  <!-- outcome cards -->
+  <rect x="90" y="560" width="690" height="250" rx="18" fill="#0F1A17" stroke="#2EE6A8" stroke-width="2"/>
+  <text x="120" y="618" fill="#2EE6A8" font-size="27" font-weight="700">Sturdier liquidity</text>
+  <text x="120" y="668" fill="#C7CDD4" font-size="25">Your inventory now sits on a deep, real pool &#8212;</text>
+  <text x="120" y="702" fill="#C7CDD4" font-size="25">backed by a two-sided market, not just your</text>
+  <text x="120" y="736" fill="#C7CDD4" font-size="25">own capital.</text>
+
+  <rect x="820" y="560" width="690" height="250" rx="18" fill="#15131F" stroke="#A78BFA" stroke-width="2"/>
+  <text x="850" y="618" fill="#A78BFA" font-size="27" font-weight="700">Real USDnew demand</text>
+  <text x="850" y="668" fill="#C7CDD4" font-size="25">People borrowing and using USDnew is exactly</text>
+  <text x="850" y="702" fill="#C7CDD4" font-size="25">the organic demand a new stablecoin is</text>
+  <text x="850" y="736" fill="#C7CDD4" font-size="25">launched to create.</text>
+</svg>

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E1117"/>
+      <stop offset="1" stop-color="#070809"/>
+    </linearGradient>
+    <marker id="arrM" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2EE6A8"/>
+    </marker>
+    <marker id="arrB" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4D9FF5"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <text x="100" y="100" fill="#FFFFFF" font-size="52" font-weight="700">Why the escrow vault is the trick</text>
+  <text x="100" y="148" fill="#8A93A0" font-size="27">Open the money market to everyone &#8212; without ever risking your swap liquidity</text>
+
+  <!-- LEFT: open money market -->
+  <rect x="90" y="200" width="640" height="350" rx="18" fill="#11151B" stroke="#243040" stroke-width="2"/>
+  <text x="120" y="252" fill="#4D9FF5" font-size="24" font-weight="700" letter-spacing="1">OPEN MONEY MARKET</text>
+  <rect x="120" y="280" width="580" height="58" rx="10" fill="#172230"/>
+  <text x="142" y="317" fill="#D7DEE6" font-size="25">USDC vault &#183; borrowable</text>
+  <rect x="120" y="350" width="580" height="58" rx="10" fill="#172230"/>
+  <text x="142" y="387" fill="#D7DEE6" font-size="25">USDnew vault &#183; borrowable</text>
+  <text x="120" y="455" fill="#8A93A0" font-size="23">Anyone can borrow against ETH, BTC and other</text>
+  <text x="120" y="486" fill="#8A93A0" font-size="23">collateral. The interest goes to lenders.</text>
+
+  <!-- RIGHT: ring-fenced -->
+  <rect x="870" y="200" width="640" height="350" rx="18" fill="#0F1A17" stroke="#2EE6A8" stroke-width="2"/>
+  <text x="900" y="252" fill="#2EE6A8" font-size="24" font-weight="700" letter-spacing="1">RING-FENCED SWAP LIQUIDITY  &#128274;</text>
+  <rect x="900" y="280" width="580" height="58" rx="10" fill="#13241F"/>
+  <text x="922" y="317" fill="#D7DEE6" font-size="25">USDC Escrow &#183; 10M inventory</text>
+  <rect x="900" y="350" width="580" height="58" rx="10" fill="#13241F"/>
+  <text x="922" y="387" fill="#D7DEE6" font-size="25">USDnew Escrow</text>
+  <text x="900" y="455" fill="#8FBAAE" font-size="23">Escrow vaults can&#8217;t be borrowed from, so your</text>
+  <text x="900" y="486" fill="#8FBAAE" font-size="23">swap liquidity can never be drained.</text>
+
+  <!-- connector -->
+  <line x1="735" y1="330" x2="862" y2="330" stroke="#2EE6A8" stroke-width="3" marker-end="url(#arrM)"/>
+  <text x="800" y="312" fill="#9FB0BD" font-size="20" text-anchor="middle">borrow 10M</text>
+
+  <!-- SWAP strip -->
+  <text x="100" y="638" fill="#FFFFFF" font-size="30" font-weight="700">A swap, end to end</text>
+
+  <rect x="100" y="672" width="290" height="152" rx="14" fill="#11151B" stroke="#243040" stroke-width="2"/>
+  <text x="245" y="742" fill="#D7DEE6" font-size="26" font-weight="600" text-anchor="middle">USDnew</text>
+  <text x="245" y="775" fill="#D7DEE6" font-size="26" font-weight="600" text-anchor="middle">holder</text>
+
+  <rect x="1140" y="672" width="370" height="64" rx="12" fill="#15171F" stroke="#A78BFA" stroke-width="2"/>
+  <text x="1162" y="712" fill="#C9BCFF" font-size="24">USDnew Escrow &#8593;</text>
+
+  <rect x="1140" y="760" width="370" height="64" rx="12" fill="#0F1A17" stroke="#2EE6A8" stroke-width="2"/>
+  <text x="1162" y="800" fill="#7CE9C2" font-size="24">USDC Escrow &#8595;</text>
+
+  <line x1="398" y1="704" x2="1132" y2="704" stroke="#A78BFA" stroke-width="3" marker-end="url(#arrB)"/>
+  <text x="765" y="690" fill="#C9BCFF" font-size="22" text-anchor="middle">USDnew in</text>
+
+  <line x1="1132" y1="792" x2="398" y2="792" stroke="#2EE6A8" stroke-width="3" marker-end="url(#arrM)"/>
+  <text x="765" y="778" fill="#7CE9C2" font-size="22" text-anchor="middle">USDC out, from inventory</text>
+
+  <text x="100" y="872" fill="#6B7480" font-size="23">Both legs &#8776; $1, so the book stays ~1:1 collateralized the whole way through.</text>
+</svg>
