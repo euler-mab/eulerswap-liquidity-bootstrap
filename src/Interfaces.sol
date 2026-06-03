@@ -35,6 +35,7 @@ interface IEVault {
     function governorAdmin() external view returns (address);
     function interestRateModel() external view returns (address);
     function LTVBorrow(address collateral) external view returns (uint16);
+    function LTVLiquidation(address collateral) external view returns (uint16);
     function oracle() external view returns (address);
     function unitOfAccount() external view returns (address);
 }

@@ -364,4 +364,50 @@ abstract contract BootstrapMarketBase is Script {
         console.log("escrow WETH:      ", d.escrowWETH);
         console.log("escrow wstETH/cbETH:", d.escrowWSTETH, d.escrowCBETH);
     }
+
+    /// @notice Print the ACTUAL on-chain LTV matrix, read back from the deployed vaults —
+    ///         the source of truth, so the docs can never silently drift. Each cell is
+    ///         "borrowLTV/liqLTV" as integer percent; "-" means not accepted as collateral.
+    function logLTVMatrix(Deployment memory d) public view {
+        address[4] memory ctrl = [d.borrowUSDC, d.borrowUSDT, d.borrowStable, d.borrowWETH];
+        console.log("=== On-chain LTV matrix (borrow/liq, percent) | deposit row x borrow column ===");
+        console.log(
+            string.concat(_padR("deposit", 9), _padR("USDC", 8), _padR("USDT", 8), _padR("RLUSD", 8), "WETH")
+        );
+        _logLTVRow("USDC", d.escrowUSDC, ctrl);
+        _logLTVRow("USDT", d.escrowUSDT, ctrl);
+        _logLTVRow("RLUSD", d.escrowStable, ctrl);
+        _logLTVRow("cbBTC", d.escrowCBBTC, ctrl);
+        _logLTVRow("WBTC", d.escrowWBTC, ctrl);
+        _logLTVRow("WETH", d.escrowWETH, ctrl);
+        _logLTVRow("wstETH", d.escrowWSTETH, ctrl);
+        _logLTVRow("cbETH", d.escrowCBETH, ctrl);
+    }
+
+    function _logLTVRow(string memory name, address coll, address[4] memory ctrl) internal view {
+        console.log(
+            string.concat(
+                _padR(name, 9),
+                _padR(_ltvCell(ctrl[0], coll), 8),
+                _padR(_ltvCell(ctrl[1], coll), 8),
+                _padR(_ltvCell(ctrl[2], coll), 8),
+                _ltvCell(ctrl[3], coll)
+            )
+        );
+    }
+
+    function _ltvCell(address controller, address collateral) internal view returns (string memory) {
+        uint16 b = IEVault(controller).LTVBorrow(collateral);
+        uint16 l = IEVault(controller).LTVLiquidation(collateral);
+        if (b == 0 && l == 0) return "-";
+        return string.concat(vm.toString(uint256(b) / 100), "/", vm.toString(uint256(l) / 100));
+    }
+
+    function _padR(string memory s, uint256 n) internal pure returns (string memory) {
+        bytes memory b = bytes(s);
+        for (uint256 i = b.length; i < n; ++i) {
+            s = string.concat(s, " ");
+        }
+        return s;
+    }
 }

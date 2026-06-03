@@ -38,6 +38,9 @@ contract DeployBootstrapMarketForkTest is Test {
         address lp = address(script);
         DeployBootstrapMarket.Deployment memory d = _deploy(lp);
 
+        // Print the actual on-chain LTV matrix (visible with -vv).
+        script.logLTVMatrix(d);
+
         // 1. Every borrowable vault is ungoverned (immutable).
         assertEq(IEVault(d.borrowUSDC).governorAdmin(), address(0), "USDC governed");
         assertEq(IEVault(d.borrowUSDT).governorAdmin(), address(0), "USDT governed");

@@ -180,6 +180,23 @@ The shape, in words:
 These tiers live as named constants (`LTV_STABLE_*`, `LTV_VOL_*`, `LTV_LST_ETH_*`, …) and
 are informed by Euler's own mainnet PrimeCluster.
 
+The deploy script (and the fork test) print this matrix **read back from the live vaults**
+via `logLTVMatrix` — so what you see on a run is the on-chain truth, not a copy that can
+drift from the code:
+
+```
+=== On-chain LTV matrix (borrow/liq, percent) | deposit row x borrow column ===
+deposit  USDC    USDT    RLUSD   WETH
+USDC     95/96   95/96   95/96   80/85
+USDT     95/96   95/96   95/96   80/85
+RLUSD    95/96   95/96   95/96   80/85
+cbBTC    80/85   80/85   80/85   78/83
+WBTC     80/85   80/85   80/85   78/83
+WETH     80/85   80/85   80/85   -
+wstETH   85/87   85/87   85/87   94/95
+cbETH    85/87   85/87   85/87   94/95
+```
+
 ### Ungoverned by construction
 
 The market is assembled through Euler's canonical [`EdgeFactory`](https://github.com/euler-xyz/evk-periphery),

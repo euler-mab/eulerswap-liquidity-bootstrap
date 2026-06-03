@@ -6,56 +6,65 @@
 <title>Bootstrap market visualizer</title>
 <style>
   :root {
-    --bg: #0f1117; --panel: #171a23; --panel2: #1e222d; --line: #2a2f3a;
-    --ink: #e6e9ef; --dim: #9aa3b2; --accent: #6ea8fe; --good: #57d9a3;
-    --warn: #f2c94c; --escrow: #2d6a4f; --borrow: #5a3e8e; --pool: #1d4e6f;
+    --bg: #0a0a0a; --panel: #101010; --panel2: #161616; --line: #242424;
+    --ink: #ededed; --ink2: #c8c8c8; --dim: #7a7a7a; --faint: #555;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.45; }
-  header { padding: 20px 24px; border-bottom: 1px solid var(--line); }
-  h1 { font-size: 18px; margin: 0 0 4px; }
-  .sub { color: var(--dim); font-size: 13px; }
-  main { max-width: 1080px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
-  .card h2 { font-size: 14px; margin: 0 0 14px; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
-  form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
-  input { width: 100%; padding: 8px 10px; background: var(--panel2); border: 1px solid var(--line);
-          border-radius: 6px; color: var(--ink); font-family: var(--mono); font-size: 13px; }
-  .row { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; }
-  button { padding: 9px 16px; background: var(--accent); color: #0b1020; border: 0; border-radius: 6px;
-           font-weight: 600; cursor: pointer; font-size: 13px; }
-  button:disabled { opacity: .5; cursor: default; }
-  .status { font-family: var(--mono); font-size: 12px; color: var(--dim); }
-  .status.err { color: #ff6b6b; }
-  .status.ok { color: var(--good); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
+         line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  header { padding: 28px 24px 22px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 16px; font-weight: 600; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--dim); font-size: 13px; max-width: 70ch; }
+  .sub code { color: var(--ink2); }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px; display: grid; gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+  .card h2 { font-size: 11px; margin: 0 0 16px; color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  label { display: block; font-size: 11px; color: var(--dim); margin-bottom: 5px; letter-spacing: .02em; }
+  input { width: 100%; padding: 9px 11px; background: var(--panel2); border: 1px solid var(--line);
+          border-radius: 6px; color: var(--ink); font-family: var(--mono); font-size: 12px; }
+  input:focus { outline: none; border-color: var(--faint); }
+  .row { grid-column: 1 / -1; display: flex; gap: 14px; align-items: center; }
+  button { padding: 9px 18px; background: var(--ink); color: var(--bg); border: 0; border-radius: 6px;
+           font-weight: 600; cursor: pointer; font-size: 12px; letter-spacing: .02em; }
+  button:hover:not(:disabled) { background: #fff; }
+  button:disabled { opacity: .4; cursor: default; }
+  .status { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .status.err { color: var(--ink); }
+  .status.ok { color: var(--ink2); }
   /* architecture */
-  .arch { display: grid; gap: 12px; }
-  .tier { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: center; }
-  .tier .name { font-size: 12px; color: var(--dim); }
+  .arch { display: grid; gap: 14px; }
+  .tier { display: grid; grid-template-columns: 140px 1fr; gap: 14px; align-items: start; }
+  .tier .name { font-size: 11px; color: var(--dim); padding-top: 7px; text-transform: uppercase; letter-spacing: .06em; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip { font-family: var(--mono); font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); }
-  .chip.borrow { background: var(--borrow); }
-  .chip.escrow { background: var(--escrow); }
-  .chip.inv { outline: 2px solid var(--good); }
-  .chip .meta { color: rgba(255,255,255,.7); font-size: 10px; display: block; }
-  .pool { background: var(--pool); text-align: center; padding: 12px; border-radius: 8px; font-family: var(--mono); font-size: 13px; }
-  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--dim); margin-top: 6px; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .chip { font-family: var(--mono); font-size: 12px; padding: 7px 11px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink2); }
+  .chip.borrow { background: var(--panel2); border-color: var(--faint); color: var(--ink); }
+  .chip.escrow { background: transparent; }
+  .chip.inv { border-color: var(--ink); color: var(--ink); }
+  .chip.inv::after { content: '●'; font-size: 7px; vertical-align: middle; margin-left: 7px; color: var(--ink); }
+  .chip .meta { color: var(--dim); font-size: 10px; display: block; margin-top: 2px; }
+  .pool { border: 1px dashed var(--faint); text-align: center; padding: 13px; border-radius: 8px;
+          font-family: var(--mono); font-size: 12px; color: var(--ink2); margin-top: 2px; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+  .sw-borrow { background: var(--panel2); border: 1px solid var(--faint); }
+  .sw-escrow { background: transparent; border: 1px solid var(--line); }
+  .sw-inv { background: transparent; border: 1px solid var(--ink); }
   /* stats */
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
-  .stat .k { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
-  .stat .v { font-family: var(--mono); font-size: 18px; margin-top: 4px; }
-  .stat .v small { font-size: 12px; color: var(--dim); }
-  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
-  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 13px; }
+  .stat .k { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+  .stat .v { font-family: var(--mono); font-size: 17px; margin-top: 5px; color: var(--ink); }
+  .stat .v small { font-size: 11px; color: var(--dim); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; margin-top: 6px; }
+  th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); }
   th:first-child, td:first-child { text-align: left; }
   th { color: var(--dim); font-weight: 500; }
-  .muted { color: var(--dim); font-size: 12px; }
-  a { color: var(--accent); }
+  td { color: var(--ink2); }
+  .muted { color: var(--dim); font-size: 12px; max-width: 78ch; }
+  code { color: var(--ink2); }
   svg text { fill: var(--dim); font-family: var(--mono); font-size: 10px; }
 </style>
 </head>
@@ -98,9 +107,9 @@
     <div class="arch" id="arch"></div>
     <div class="pool" id="poolBox">EulerSwap pool — supply = stable escrows (ring-fenced inventory) · debt = borrowable vaults</div>
     <div class="legend">
-      <span><span class="dot" style="background:var(--borrow)"></span>borrowable (controller, own IRM)</span>
-      <span><span class="dot" style="background:var(--escrow)"></span>collateral-only escrow (cannot be borrowed out)</span>
-      <span><span class="dot" style="background:var(--good)"></span>swap inventory (USDC + stable)</span>
+      <span><span class="swatch sw-borrow"></span>borrowable (controller, own IRM)</span>
+      <span><span class="swatch sw-escrow"></span>collateral-only escrow (cannot be borrowed out)</span>
+      <span><span class="swatch sw-inv"></span>swap inventory (USDC + stable)</span>
     </div>
     <p class="muted" id="archNote"></p>
   </section>
@@ -111,12 +120,13 @@
   </section>
 
   <section class="card" id="curveCard" hidden>
-    <h2>Swap depth — effective price & price impact vs trade size</h2>
-    <svg id="chart" viewBox="0 0 1000 320" width="100%" height="320"></svg>
+    <h2>Liquidity depth — dollars available vs execution price</h2>
+    <svg id="chart" viewBox="0 0 1000 340" width="100%" height="340"></svg>
     <table id="curveTable"></table>
-    <p class="muted">Effective price is output-per-input normalized to the 1:1 peg. The curve stays flat near $1
-    (concentration ≈ 1) until the trade approaches the seeded inventory; this template is unleveraged, so the pool
-    draws inventory down to the equilibrium reserves and does not borrow.</p>
+    <p class="muted">Cumulative dollars tradable as a function of the marginal execution price, centred on the
+    $1 peg. The left arm sells the stable for USDC (price &lt; 1); the right arm buys it (price &gt; 1). Concentration
+    ≈ 1 stacks almost all depth within a hair of $1; the curve tops out at the seeded inventory because this template
+    is unleveraged (it draws inventory down to the equilibrium reserves and does not borrow).</p>
   </section>
 </main>
 
@@ -232,36 +242,49 @@ document.getElementById('cfg').addEventListener('submit', async (e) => {
     ].map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
     document.getElementById('liveCard').hidden = false;
 
-    // ── sample the quote curve in both directions ──
-    setStatus('Sampling quote curve…');
-    const fracs = [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99];
-    // size relative to the USDC-side inventory (token A)
-    const baseA = aIs0 ? eq0 : eq1; // human USDC equilibrium
-    const rows = [];
-    for (const f of fracs) {
-      const sizeA = baseA * f;
-      const inA = BigInt(Math.floor(sizeA * pow10(decA)));
-      if (inA === 0n) continue;
-      // A -> B (sell USDC for stable)
-      let outB = null, pxAB = null, impAB = null;
+    // ── build the depth curve: marginal price vs cumulative $, both directions ──
+    // Price is quoted as "stable per USDC". The pool stays near 1; we finite-difference
+    // computeQuote across growing trade sizes to recover the marginal price at each
+    // cumulative dollar amount. Left arm = sell stable (price < 1), right = buy (price > 1).
+    setStatus('Sampling depth curve…');
+    const fracs = [0.01, 0.02, 0.04, 0.06, 0.09, 0.12, 0.16, 0.2, 0.27, 0.34, 0.42,
+                   0.5, 0.58, 0.66, 0.74, 0.8, 0.85, 0.9, 0.93, 0.95, 0.97, 0.98, 0.99, 0.995];
+    const baseUSDC = aIs0 ? eq0 : eq1; // human USDC equilibrium
+    const baseStable = aIs0 ? eq1 : eq0; // human stable equilibrium
+
+    // quote helper, normalized to human units
+    const quote = async (tIn, tOut, amtHuman, decIn, decOut) => {
+      const amt = BigInt(Math.floor(amtHuman * pow10(decIn)));
+      if (amt === 0n) return null;
       try {
-        outB = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'computeQuote', args: [tokenA, tokenB, inA, true] });
-        const outBh = Number(outB) / pow10(decB);
-        pxAB = outBh / sizeA;            // stable per USDC, ~1
-        impAB = (1 - pxAB) * 1e4;        // bps below peg (incl. fee)
-      } catch {}
-      // B -> A (sell stable for USDC), same notional in stable
-      let pxBA = null, impBA = null;
-      try {
-        const inB = BigInt(Math.floor(sizeA * pow10(decB)));
-        const outA = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'computeQuote', args: [tokenB, tokenA, inB, true] });
-        const outAh = Number(outA) / pow10(decA);
-        pxBA = outAh / sizeA;
-        impBA = (1 - pxBA) * 1e4;
-      } catch {}
-      rows.push({ sizeA, pxAB, impAB, pxBA, impBA });
-    }
-    renderCurve(rows, symA, symB);
+        const out = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'computeQuote', args: [tIn, tOut, amt, true] });
+        return Number(out) / pow10(decOut);
+      } catch { return null; }
+    };
+
+    // sweep one direction, returning [{ price = USDC per stable, cum$ }] ordered out from peg.
+    // sell=true: sell stable for USDC (price < 1, left). sell=false: buy stable (price > 1, right).
+    const sweep = async (sell) => {
+      const arm = []; let prevIn = 0, prevOut = 0;
+      for (const f of fracs) {
+        const inHuman = (sell ? baseStable : baseUSDC) * f;
+        const out = sell
+          ? await quote(tokenB, tokenA, inHuman, decB, decA)  // stable -> USDC
+          : await quote(tokenA, tokenB, inHuman, decA, decB); // USDC -> stable
+        if (out == null) continue;
+        const dIn = inHuman - prevIn, dOut = out - prevOut;
+        prevIn = inHuman; prevOut = out;
+        if (dIn <= 0 || dOut <= 0) continue;
+        // price = USDC per stable: sell gives USDC/stable directly; buy is USDC-in/stable-out.
+        const price = sell ? (dOut / dIn) : (dIn / dOut);
+        arm.push({ price, cum: inHuman }); // cum in $ (both legs ≈ $1)
+      }
+      return arm;
+    };
+    const sellArm = await sweep(true);   // price < 1 (left)
+    const buyArm = await sweep(false);   // price > 1 (right)
+
+    renderDepth(sellArm, buyArm, symA, symB);
     document.getElementById('curveCard').hidden = false;
     setStatus(`Loaded. Pool pairs ${sym0}/${sym1}; token0 = ${sym0}.`, 'ok');
   } catch (err) {
@@ -272,39 +295,57 @@ document.getElementById('cfg').addEventListener('submit', async (e) => {
   }
 });
 
-function renderCurve(rows, symA, symB) {
-  // table
-  const t = document.getElementById('curveTable');
-  t.innerHTML = `<tr><th>Trade size (${symA})</th><th>${symA}→${symB} px</th><th>impact (bps)</th>`
-    + `<th>${symB}→${symA} px</th><th>impact (bps)</th></tr>`
-    + rows.map(r => `<tr><td>${fmt(r.sizeA, 0)}</td>`
-      + `<td>${r.pxAB == null ? '—' : r.pxAB.toFixed(5)}</td><td>${r.impAB == null ? '—' : r.impAB.toFixed(1)}</td>`
-      + `<td>${r.pxBA == null ? '—' : r.pxBA.toFixed(5)}</td><td>${r.impBA == null ? '—' : r.impBA.toFixed(1)}</td></tr>`).join('');
+const money = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(0) + 'k' : '$' + fmt(v, 0);
 
-  // SVG line chart: price impact (bps, y) vs trade size (x)
-  const W = 1000, H = 320, padL = 56, padR = 16, padT = 16, padB = 40;
-  const xs = rows.map(r => r.sizeA);
-  const ys = rows.flatMap(r => [r.impAB, r.impBA]).filter(v => v != null);
-  const xMax = Math.max(...xs), yMax = Math.max(1, ...ys);
-  const X = (v) => padL + (v / xMax) * (W - padL - padR);
-  const Y = (v) => H - padB - (v / yMax) * (H - padT - padB);
-  const line = (key, color) => {
-    const pts = rows.filter(r => r[key] != null).map(r => `${X(r.sizeA)},${Y(r[key])}`).join(' ');
-    return `<polyline fill="none" stroke="${color}" stroke-width="2" points="${pts}" />`
-      + rows.filter(r => r[key] != null).map(r => `<circle cx="${X(r.sizeA)}" cy="${Y(r[key])}" r="2.5" fill="${color}" />`).join('');
+// Liquidity depth chart: x = execution price (USDC per stable) centred on 1, y = cumulative $.
+function renderDepth(sellArm, buyArm, symA, symB) {
+  const all = [...sellArm, ...buyArm];
+  if (!all.length) { document.getElementById('chart').innerHTML = `<text x="20" y="30">No quotes returned.</text>`; return; }
+  const dev = (p) => (p - 1) * 1e4; // bps from peg
+  const maxDev = Math.min(40, Math.max(2, Math.ceil(Math.max(...all.map(a => Math.abs(dev(a.price)))))));
+  const yMax = Math.max(...all.map(a => a.cum));
+
+  const W = 1000, H = 340, padL = 64, padR = 18, padT = 18, padB = 46;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const X = (d) => padL + (Math.max(-maxDev, Math.min(maxDev, d)) + maxDev) / (2 * maxDev) * plotW;
+  const Y = (c) => H - padB - (c / yMax) * plotH;
+
+  // area path: from peg baseline, out through the arm (sorted by |dev|), back to baseline.
+  const area = (arm) => {
+    const pts = [...arm].sort((a, b) => Math.abs(dev(a.price)) - Math.abs(dev(b.price)));
+    if (!pts.length) return '';
+    let d = `M ${X(0)} ${Y(0)}`;
+    for (const p of pts) d += ` L ${X(dev(p.price))} ${Y(p.cum)}`;
+    const last = pts[pts.length - 1];
+    d += ` L ${X(dev(last.price))} ${Y(0)} Z`;
+    return `<path d="${d}" fill="rgba(237,237,237,0.10)" stroke="#ededed" stroke-width="1.5" />`;
   };
-  const yticks = [0, 0.25, 0.5, 0.75, 1].map(f => f * yMax);
-  const xticks = [0, 0.25, 0.5, 0.75, 1].map(f => f * xMax);
-  const grid = yticks.map(v => `<line x1="${padL}" y1="${Y(v)}" x2="${W - padR}" y2="${Y(v)}" stroke="#2a2f3a" />`
-    + `<text x="${padL - 8}" y="${Y(v) + 3}" text-anchor="end">${v.toFixed(1)}</text>`).join('')
-    + xticks.map(v => `<text x="${X(v)}" y="${H - padB + 16}" text-anchor="middle">${fmt(v, 0)}</text>`).join('');
-  document.getElementById('chart').innerHTML = grid
-    + line('impAB', '#6ea8fe') + line('impBA', '#57d9a3')
-    + `<text x="${padL}" y="12">price impact (bps)</text>`
-    + `<text x="${W - padR}" y="${H - 6}" text-anchor="end">trade size (${symA})</text>`
-    + `<g transform="translate(${W - 220},24)">`
-    + `<rect x="0" y="-10" width="8" height="8" fill="#6ea8fe"/><text x="14" y="-3" fill="#9aa3b2">${symA}→${symB}</text>`
-    + `<rect x="80" y="-10" width="8" height="8" fill="#57d9a3"/><text x="94" y="-3" fill="#9aa3b2">${symB}→${symA}</text></g>`;
+
+  // gridlines + ticks
+  const yt = [0.25, 0.5, 0.75, 1].map(f => f * yMax);
+  const xt = [-maxDev, -maxDev / 2, 0, maxDev / 2, maxDev];
+  const grid = `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}" stroke="#242424"/>`
+    + `<line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="#242424"/>`
+    + yt.map(v => `<line x1="${padL}" y1="${Y(v)}" x2="${W - padR}" y2="${Y(v)}" stroke="#1a1a1a"/>`
+        + `<text x="${padL - 8}" y="${Y(v) + 3}" text-anchor="end">${money(v)}</text>`).join('')
+    + xt.map(d => `<text x="${X(d)}" y="${H - padB + 15}" text-anchor="middle">${(1 + d / 1e4).toFixed(4)}</text>`
+        + `<text x="${X(d)}" y="${H - padB + 28}" text-anchor="middle" fill="#555">${d > 0 ? '+' : ''}${d.toFixed(0)}bp</text>`).join('');
+  // peg marker
+  const peg = `<line x1="${X(0)}" y1="${padT}" x2="${X(0)}" y2="${H - padB}" stroke="#3a3a3a" stroke-dasharray="2 3"/>`
+    + `<text x="${X(0)}" y="${padT - 4}" text-anchor="middle" fill="#9a9a9a">$1.00 peg</text>`;
+
+  document.getElementById('chart').innerHTML = grid + peg + area(sellArm) + area(buyArm)
+    + `<text x="${padL}" y="12">depth ($, cumulative)</text>`
+    + `<text x="${(padL + X(0)) / 2}" y="${H - 6}" text-anchor="middle" fill="#9a9a9a">← sell ${symB} for ${symA}</text>`
+    + `<text x="${(X(0) + W - padR) / 2}" y="${H - 6}" text-anchor="middle" fill="#9a9a9a">buy ${symB} with ${symA} →</text>`;
+
+  // summary table: depth available within N bp of the peg, each side
+  const within = (arm, bp) => { const f = arm.filter(a => Math.abs(dev(a.price)) <= bp); return f.length ? Math.max(...f.map(a => a.cum)) : 0; };
+  const t = document.getElementById('curveTable');
+  t.innerHTML = `<tr><th>Within of peg</th><th>price band</th><th>sell-side depth</th><th>buy-side depth</th></tr>`
+    + [1, 2, 5, 10, 20].map(bp => `<tr><td>±${bp} bp</td>`
+      + `<td>${(1 - bp / 1e4).toFixed(4)} – ${(1 + bp / 1e4).toFixed(4)}</td>`
+      + `<td>${money(within(sellArm, bp))}</td><td>${money(within(buyArm, bp))}</td></tr>`).join('');
 }
 
 // Prefill from URL query params (?rpc=…&pool=…) for shareable links

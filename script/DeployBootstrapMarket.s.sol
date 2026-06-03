@@ -26,6 +26,7 @@ contract DeployBootstrapMarket is BootstrapMarketBase {
         vm.stopBroadcast();
 
         logDeployment(d);
+        logLTVMatrix(d);
     }
 
     /// @notice Thin wrapper so tests can drive the deploy without broadcasting.
