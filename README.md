@@ -13,6 +13,10 @@ asset); change one constant to bootstrap your own. Validated end-to-end on a mai
 > ⚠️ **Experimental, unaudited reference code.** Verify every address and parameter,
 > fork-test, and get a review before risking real funds. See [Risks](#risks).
 
+📖 **Want the full story?** The [**walkthrough**](docs/WALKTHROUGH.md) covers the strategy
+*and* a technical deep-dive on everything deployed; the [**blog post**](docs/blog-post.md)
+is the narrative version.
+
 ---
 
 ## The idea
