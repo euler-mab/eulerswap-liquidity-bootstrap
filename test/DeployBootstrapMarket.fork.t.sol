@@ -5,8 +5,8 @@ import {Test, console} from "forge-std/Test.sol";
 import {DeployBootstrapMarket} from "../script/DeployBootstrapMarket.s.sol";
 import {IERC20, IEVC, IEVault, IEulerSwapPool} from "../src/Interfaces.sol";
 
-/// @notice End-to-end validation of the bootstrap deploy against a mainnet fork.
-/// @dev    MAINNET_RPC_URL=https://... forge test --match-path test/*.fork.t.sol -vvv
+/// @notice End-to-end validation of the USDC/USDT deploy against a mainnet fork.
+/// @dev    MAINNET_RPC_URL=https://... forge test --match-path test/DeployBootstrapMarket.fork.t.sol -vvv
 contract DeployBootstrapMarketForkTest is Test {
     DeployBootstrapMarket internal script;
 
@@ -24,26 +24,28 @@ contract DeployBootstrapMarketForkTest is Test {
 
     function test_deploys_ungoverned_market_and_quotes() public {
         // The script contract acts as the LP / eulerAccount: nested calls inside
-        // deployMarket are sent by it, so it must hold the seed and own the account.
+        // deploy() are sent by it, so it must hold the seed and own the account.
         address lp = address(script);
         deal(USDC, lp, SEED_USDC);
         deal(USDT, lp, SEED_USDT);
 
-        DeployBootstrapMarket.Deployment memory d = script.deployMarket(lp, SEED_USDC, SEED_USDT);
+        DeployBootstrapMarket.Deployment memory d = script.deploy(lp, SEED_USDC, SEED_USDT);
 
         // 1. Borrowable vaults are ungoverned (immutable).
         assertEq(IEVault(d.borrowUSDC).governorAdmin(), address(0), "USDC vault still governed");
-        assertEq(IEVault(d.borrowUSDT).governorAdmin(), address(0), "USDT vault still governed");
+        assertEq(IEVault(d.borrowStable).governorAdmin(), address(0), "USDT vault still governed");
 
         // 2. Collateral relationships wired as intended.
-        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowUSDT), 0.95e4, "stable cross LTV");
+        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowStable), 0.95e4, "stable cross LTV");
         assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowUSDC), 0.95e4, "stable self/loop LTV");
         assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowWETH), 0.80e4, "WETH collateral LTV");
-        assertEq(IEVault(d.borrowUSDT).LTVBorrow(d.escrowCBBTC), 0.80e4, "cbBTC collateral LTV");
+        assertEq(IEVault(d.borrowStable).LTVBorrow(d.escrowCBBTC), 0.80e4, "cbBTC collateral LTV");
 
         // 3. Inventory really sits in the escrow vaults.
         assertEq(IEVault(d.escrowUSDC).convertToAssets(IEVault(d.escrowUSDC).balanceOf(lp)), SEED_USDC, "USDC inventory");
-        assertEq(IEVault(d.escrowUSDT).convertToAssets(IEVault(d.escrowUSDT).balanceOf(lp)), SEED_USDT, "USDT inventory");
+        assertEq(
+            IEVault(d.escrowStable).convertToAssets(IEVault(d.escrowStable).balanceOf(lp)), SEED_USDT, "USDT inventory"
+        );
 
         // 4. The pool is authorized as an EVC operator and is live.
         assertTrue(IEVC(EVC).isAccountOperatorAuthorized(lp, d.pool), "operator not installed");

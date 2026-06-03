@@ -115,20 +115,24 @@ are wired, the inventory is in escrow, the operator is installed, and the pool q
 
 ## Slot in your own stablecoin
 
-This is a **template**. To bootstrap *your* stable (call it USDnew) instead of USDT,
-change the `USDT` constant to your token's address — the escrow/borrowable/LTV wiring
-is identical.
+Two entry points share one base (`BootstrapMarketBase`):
 
-The one thing that differs for a **brand-new** stable: it has no Chainlink feed yet.
-Swap its adapter for a **`FixedRateOracle`** pegged to $1 (or your own vetted adapter):
+- **`DeployBootstrapMarket`** — USDC/USDT, USDT priced by its Chainlink feed. The
+  template for an *established* stable: change the `USDT` / feed constants to yours.
+- **`DeployNewStableMarket`** — USDC/USDnew for a **brand-new** stable that has no
+  Chainlink feed yet. It prices the new stable with a `FixedRateOracle` pegged to $1;
+  pass your token via `NEW_STABLE=0x...`.
 
-```solidity
-// instead of: new ChainlinkOracle(USDnew, USD, feed, staleness)
-new FixedRateOracle(USDnew, USD, 1e18); // 1 USDnew = 1 USD (18-dp unit of account)
+The base **sorts the pair by address** (your stable may fall either side of USDC) and
+derives the decimal-adjusted 1:1 price automatically (6- or 18-dp stables). Everything
+else — escrow ring-fencing, borrow-funded inventory, cbBTC/WETH collateral, ungoverned
+deployment — is identical across both.
+
+```bash
+# Brand-new stablecoin:
+PRIVATE_KEY=0x... NEW_STABLE=0xYourToken forge script \
+  script/DeployNewStableMarket.s.sol:DeployNewStableMarket --rpc-url mainnet --broadcast --slow
 ```
-
-Everything else — the escrow ring-fencing, the borrow-funded inventory, the cbBTC/WETH
-collateral, the ungoverned deployment — carries over unchanged.
 
 ---
 
@@ -167,8 +171,11 @@ borrow from the borrowable vaults — which requires those vaults to have lender
 ## Layout
 
 ```
-script/DeployBootstrapMarket.s.sol   # the deploy (run + deployMarket)
-test/DeployBootstrapMarket.fork.t.sol# end-to-end mainnet-fork validation
+script/BootstrapMarketBase.sol       # shared deploy logic (vaults, pool, ordering)
+script/DeployBootstrapMarket.s.sol   # USDC/USDT (Chainlink-priced)
+script/DeployNewStableMarket.s.sol   # USDC/your new stable (FixedRateOracle $1)
+test/*.fork.t.sol                    # end-to-end mainnet-fork validation (both paths)
+test/mocks/MockERC20.sol             # stand-in token for the new-stable test
 src/Interfaces.sol                   # minimal vendored Euler interfaces
 src/HookMiner.sol                    # CREATE2 salt mining for V4 hook flags
 assets/                              # the diagrams above
