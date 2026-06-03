@@ -56,4 +56,40 @@ contract DeployBootstrapMarketForkTest is Test {
         assertGt(out, 99_900e6, "quote unexpectedly low");
         assertLe(out, 100_000e6, "quote exceeds input");
     }
+
+    /// @notice Executes a real swap end-to-end and asserts the inventory moves through
+    ///         the escrow vaults as designed (USDC < USDT, so USDC is token0).
+    function test_executes_a_swap_through_escrow_inventory() public {
+        address lp = address(script);
+        deal(USDC, lp, SEED_USDC);
+        deal(USDT, lp, SEED_USDT);
+        DeployBootstrapMarket.Deployment memory d = script.deploy(lp, SEED_USDC, SEED_USDT);
+
+        // A fresh trader swaps 100k USDC -> USDT.
+        address trader = makeAddr("trader");
+        uint256 amountIn = 100_000e6;
+        deal(USDC, trader, amountIn);
+        uint256 out = IEulerSwapPool(d.pool).computeQuote(USDC, USDT, amountIn, true);
+
+        uint256 usdtEscrowBefore = IEVault(d.escrowStable).convertToAssets(IEVault(d.escrowStable).balanceOf(lp));
+        uint256 usdcEscrowBefore = IEVault(d.escrowUSDC).convertToAssets(IEVault(d.escrowUSDC).balanceOf(lp));
+
+        // Uniswap-V2-style: send input to the pool, then request the output. USDC is
+        // token0, so the USDT output is amount1Out.
+        vm.startPrank(trader);
+        IERC20(USDC).transfer(d.pool, amountIn);
+        IEulerSwapPool(d.pool).swap(0, out, trader, "");
+        vm.stopPrank();
+
+        // The trader received the quoted USDT.
+        assertEq(IERC20(USDT).balanceOf(trader), out, "trader did not receive output");
+
+        // Output came OUT of the USDT escrow; input went INTO the USDC escrow. No debt
+        // is taken on — inventory alone covers it (equilibrium reserves == seed).
+        uint256 usdtEscrowAfter = IEVault(d.escrowStable).convertToAssets(IEVault(d.escrowStable).balanceOf(lp));
+        uint256 usdcEscrowAfter = IEVault(d.escrowUSDC).convertToAssets(IEVault(d.escrowUSDC).balanceOf(lp));
+        assertApproxEqAbs(usdtEscrowBefore - usdtEscrowAfter, out, 1, "USDT not withdrawn from escrow");
+        assertApproxEqAbs(usdcEscrowAfter - usdcEscrowBefore, amountIn, 1, "USDC not deposited to escrow");
+        assertEq(IEVault(d.borrowStable).debtOf(lp), 0, "unexpected debt: template is unleveraged");
+    }
 }

@@ -16,6 +16,9 @@ library HookMiner {
     ///   | BEFORE_DONATE(1<<5) | BEFORE_SWAP_RETURNS_DELTA(1<<3) == 0x28A8.
     uint160 constant EULERSWAP_FLAGS = 0x28A8;
 
+    /// @dev Iteration cap carried over from the canonical Uniswap/EulerSwap miner.
+    ///      A valid salt must match all 14 low bits (P = 1/2^14), so this bound gives
+    ///      ~10 expected hits — finding one in practice is near-certain.
     uint256 constant MAX_LOOP = 160_444;
 
     /// @param deployer    The CREATE2 deployer — the EulerSwap factory.

@@ -234,7 +234,10 @@ abstract contract BootstrapMarketBase is Script {
     }
 
     /// @dev priceX/priceY for a 1:1 human price between token0 (dec0) and token1 (dec1):
-    ///      priceX/priceY = 10^(dec1 - dec0). Both stay in the uint80 [1, 1e24] range.
+    ///      priceX/priceY = 10^(dec1 - dec0). One side is fixed at 1e18 and the other
+    ///      is 1e18 / 10^|dec1 - dec0|, so values land in [1e6, 1e18] for the 6-/18-dp
+    ///      stables we target — comfortably inside uint80. Assumes |dec1 - dec0| <= 18
+    ///      (true for any real stablecoin pair); a larger gap would floor the divisor.
     function _price1to1(uint8 dec0, uint8 dec1) internal pure returns (uint80 px, uint80 py) {
         if (dec1 >= dec0) {
             px = 1e18;

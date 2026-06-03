@@ -91,7 +91,7 @@ interface IEdgeFactory {
 }
 
 /// @notice EulerSwap param structs (euler-swap).
-library IEulerSwap {
+interface IEulerSwap {
     struct DynamicParams {
         uint112 equilibriumReserve0;
         uint112 equilibriumReserve1;
@@ -137,7 +137,7 @@ interface IEulerSwapFactory {
     ) external returns (address);
 }
 
-/// @notice Deployed EulerSwap pool — read helpers used by tests.
+/// @notice Deployed EulerSwap pool — read helpers + the swap entrypoint used by tests.
 interface IEulerSwapPool {
     function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 status);
     function computeQuote(address tokenIn, address tokenOut, uint256 amount, bool exactIn)
@@ -145,4 +145,8 @@ interface IEulerSwapPool {
         view
         returns (uint256);
     function getDynamicParams() external view returns (IEulerSwap.DynamicParams memory);
+    /// @dev Uniswap-V2-style: transfer `tokenIn` to the pool first, then call swap
+    ///      requesting the output. The pool deposits the input / withdraws (or borrows)
+    ///      the output through its vaults and verifies the curve invariant.
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
