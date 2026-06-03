@@ -13,7 +13,7 @@
   </defs>
   <rect width="1600" height="900" fill="url(#bg)"/>
 
-  <text x="100" y="100" fill="#FFFFFF" font-size="52" font-weight="700">Why the escrow vault is the trick</text>
+  <text x="100" y="100" fill="#FFFFFF" font-size="52" font-weight="700">Collateral that can&#8217;t be borrowed out</text>
   <text x="100" y="148" fill="#8A93A0" font-size="27">Open the money market to everyone &#8212; without ever risking your swap liquidity</text>
 
   <!-- LEFT: open money market -->

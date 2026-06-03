@@ -29,7 +29,9 @@ Deploy four Euler vaults:
 
 Wire up cross-collateral between them through the EVC, and you've got a self-contained RLUSD⇄USDC money market. (We pair RLUSD with USDC here, but USDT works just as well as the counter-asset - or run both RLUSD⇄USDC and RLUSD⇄USDT pools for wider coverage and better routing.)
 
-The escrow vaults are the trick, and the beauty of EulerSwap v2. Your swap inventory lives there - and because nothing can ever be borrowed out of an escrow vault, the liquidity you've set aside for swappers can't be drained by anyone else, even while the borrowable vaults are wide open. That ring-fencing is what makes the whole structure safe.
+Two of those are **collateral-only vaults** - in Euler's world they're called *escrow* vaults. They do one thing: hold assets you can post as collateral, with nothing borrowable out of them. The nice part is that here the collateral does double duty - it's also the inventory EulerSwap hands to swappers. Because it can never be borrowed away, your swap liquidity can't be drained by the money market, even with the borrowable vaults wide open.
+
+Step back and the whole structure is simpler than it sounds: you're running a leveraged stablecoin position and **allowing collateral swaps on it**. Someone trading RLUSD→USDC is just swapping between the collateral assets of your position - and because both legs sit at ~$1, it stays fully collateralized the whole way.
 
 ![A swap routes through ring-fenced escrow inventory: RLUSD in to escrow, USDC out from borrowed inventory, while the borrowable money market stays separate](../assets/2-mechanism.png)
 

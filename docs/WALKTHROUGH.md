@@ -35,18 +35,22 @@ collateral, borrowing USDC against it costs roughly **3–4% a year** at today's
 That borrow rate is your cost of liquidity — and because every swap pays you a fee,
 1–2% in swap fees nets you down to **~1–2% a year**. Self-custodied, on-chain, yours.
 
-## The escrow trick
+## Collateral-only vaults
 
-![Why the escrow vault is the trick](../assets/2-mechanism.png)
+![Collateral-only escrow vaults ring-fence the swap inventory](../assets/2-mechanism.png)
 
-The swap inventory lives in **collateral-only escrow vaults**. Nothing can be borrowed
-*out* of an escrow vault, so the liquidity you've set aside for swappers can never be
-drained by the money market — even while you open the borrowable vaults wide to other
-users. That ring-fencing is the property that makes the whole structure safe.
+The swap inventory lives in **collateral-only vaults** — in Euler's world these are
+*escrow* vaults. An escrow vault does one thing: it holds an asset you can post as
+collateral, and **nothing can be borrowed out of it**. Here that collateral does double
+duty — it's also the inventory EulerSwap hands to swappers. Because it can never be
+borrowed away, your swap liquidity can't be drained by the money market, even with the
+borrowable vaults wide open.
 
-When someone swaps USDC in for the stable, their USDC lands in the USDC escrow and the
-stable flows out of the stable escrow. Because both legs sit at ~$1, the book stays
-roughly 1:1 collateralised the whole way through.
+Step back and the structure is simpler than it sounds: you're running a leveraged
+stablecoin position and **allowing collateral swaps on it**. When someone swaps USDC in
+for the stable, their USDC lands in the USDC escrow and the stable flows out of the stable
+escrow — they're just swapping between the collateral assets of your position. Because both
+legs sit at ~$1, the book stays roughly 1:1 collateralised the whole way through.
 
 ## It's a mini Aave/Spark market
 
