@@ -57,6 +57,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 | [src/HookMiner.sol](src/HookMiner.sol) | CREATE2 salt mining so the pool address encodes the Uniswap V4 hook flags. Runs off-chain. |
 | [test/Unit.t.sol](test/Unit.t.sol) | Fork-less unit tests (`_price1to1`, `HookMiner`). |
 | [test/DeployBootstrapMarket.fork.t.sol](test/DeployBootstrapMarket.fork.t.sol) | End-to-end mainnet-fork test + swap execution. |
+| [viz/index.html](viz/index.html) | Self-contained, dependency-free visualizer — reads a deployed pool over RPC and renders the ring-fenced architecture + EulerSwap depth curve. See [viz/README.md](viz/README.md). |
 | `assets/` | README diagrams. |
 
 ## The market it builds (default config)
@@ -97,6 +98,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 - **Add/remove a collateral asset**: touch every layer — add the token constant, add a `BORROW_*`/`ESC_*` index, extend `_vaults()`, `_adapters()`, `_ltvs()` (and fix the `k == 31` count), the `Deployment` struct, and `logDeployment()`. The fork test's LTV/oracle assertions are the safety net.
 - **Calibrate before mainnet**: review the parameter table in [README.md](README.md#calibrate-before-mainnet) — seeds, the `LTV_*` tiers, the adaptive-curve `IRM_*` values, `CONCENTRATION`, `SWAP_FEE`, and **verify every Chainlink feed** against docs.chain.link.
 - **Add fork-less test coverage**: extend `test/Unit.t.sol`; expose any new `internal` helper via a harness like `PriceHarness`.
+- **Visualize a deployed market**: open `viz/index.html`, paste an RPC + the pool address the deploy logged. If you changed the collateral set, update the `ARCH` config object in that file so the architecture panel matches (the live state + depth chart read from the pool and need no edits).
 
 ## Pitfalls
 

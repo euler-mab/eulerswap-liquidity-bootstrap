@@ -35,13 +35,16 @@ world is *borrowed* USDC: if your stable is solid collateral, borrowing USDC aga
 it costs ~3–4% a year. That borrow rate is your cost of liquidity — and swap fees you
 earn offset most of it, often down to ~1–2% net.
 
-### The escrow trick
+### Collateral-only vaults
 
 ![Mechanism](assets/2-mechanism.png)
 
-The swap inventory lives in **collateral-only escrow vaults**. Nothing can be borrowed
-*out* of an escrow vault, so your swap liquidity can never be drained by the money
-market — even while you open the borrowable vaults to other users.
+Your swap inventory lives in **collateral-only vaults** — Euler calls these *escrow*
+vaults. They hold assets you can post as collateral, and nothing can be borrowed out of
+them. Here that collateral also *serves the liquidity*: anyone swapping in and out of your
+stablecoin is just doing collateral swaps on a leveraged stablecoin position. Because it
+can't be borrowed away, your liquidity can't be drained by the money market — even with
+the borrowable vaults wide open.
 
 ### It's a mini Aave/Spark market for your stablecoin
 
@@ -181,8 +184,16 @@ test/DeployBootstrapMarket.fork.t.sol# end-to-end mainnet-fork validation
 test/Unit.t.sol                      # fork-less unit tests (price math, hook miner)
 src/Interfaces.sol                   # minimal vendored Euler interfaces
 src/HookMiner.sol                    # CREATE2 salt mining for V4 hook flags
+viz/index.html                       # dependency-free visualizer (architecture + depth curve)
 assets/                              # the diagrams above
 ```
+
+## Visualize it
+
+[`viz/index.html`](viz/index.html) is a self-contained, build-free page that reads a deployed
+market over RPC and draws the ring-fenced architecture and the EulerSwap liquidity depth around
+the $1 peg. Open the file, paste an RPC + the pool address the deploy logged. See
+[`viz/README.md`](viz/README.md).
 
 Built on [EulerSwap](https://github.com/euler-xyz/euler-swap),
 [Euler Vault Kit](https://github.com/euler-xyz/euler-vault-kit), the
