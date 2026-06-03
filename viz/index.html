@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bootstrap market visualizer</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1e222d; --line: #2a2f3a;
+    --ink: #e6e9ef; --dim: #9aa3b2; --accent: #6ea8fe; --good: #57d9a3;
+    --warn: #f2c94c; --escrow: #2d6a4f; --borrow: #5a3e8e; --pool: #1d4e6f;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.45; }
+  header { padding: 20px 24px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .card h2 { font-size: 14px; margin: 0 0 14px; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  input { width: 100%; padding: 8px 10px; background: var(--panel2); border: 1px solid var(--line);
+          border-radius: 6px; color: var(--ink); font-family: var(--mono); font-size: 13px; }
+  .row { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; }
+  button { padding: 9px 16px; background: var(--accent); color: #0b1020; border: 0; border-radius: 6px;
+           font-weight: 600; cursor: pointer; font-size: 13px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .status { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .status.err { color: #ff6b6b; }
+  .status.ok { color: var(--good); }
+  /* architecture */
+  .arch { display: grid; gap: 12px; }
+  .tier { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: center; }
+  .tier .name { font-size: 12px; color: var(--dim); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font-family: var(--mono); font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); }
+  .chip.borrow { background: var(--borrow); }
+  .chip.escrow { background: var(--escrow); }
+  .chip.inv { outline: 2px solid var(--good); }
+  .chip .meta { color: rgba(255,255,255,.7); font-size: 10px; display: block; }
+  .pool { background: var(--pool); text-align: center; padding: 12px; border-radius: 8px; font-family: var(--mono); font-size: 13px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--dim); margin-top: 6px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  /* stats */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  .stat .k { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+  .stat .v { font-family: var(--mono); font-size: 18px; margin-top: 4px; }
+  .stat .v small { font-size: 12px; color: var(--dim); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--dim); font-weight: 500; }
+  .muted { color: var(--dim); font-size: 12px; }
+  a { color: var(--accent); }
+  svg text { fill: var(--dim); font-family: var(--mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>EulerSwap bootstrap market — visualizer</h1>
+  <div class="sub">Reads a deployed market over RPC and renders the ring-fenced architecture and the swap depth curve.
+  Self-contained: no build, no server. See <code>viz/README.md</code>.</div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Connection</h2>
+    <form id="cfg">
+      <div>
+        <label>RPC URL (mainnet)</label>
+        <input id="rpc" placeholder="https://eth-mainnet.g.alchemy.com/v2/…" />
+      </div>
+      <div>
+        <label>EulerSwap pool address</label>
+        <input id="pool" placeholder="0x… (logged by the deploy script)" />
+      </div>
+      <div>
+        <label>USDC address (token A, 6 dp)</label>
+        <input id="tokenA" value="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" />
+      </div>
+      <div>
+        <label>Bootstrapped stable (token B, 18 dp = RLUSD)</label>
+        <input id="tokenB" value="0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD" />
+      </div>
+      <div class="row">
+        <button type="submit" id="go">Load market</button>
+        <span class="status" id="status">Enter an RPC + a deployed pool address, then Load. (Architecture below renders without a connection.)</span>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Market architecture</h2>
+    <div class="arch" id="arch"></div>
+    <div class="pool" id="poolBox">EulerSwap pool — supply = stable escrows (ring-fenced inventory) · debt = borrowable vaults</div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--borrow)"></span>borrowable (controller, own IRM)</span>
+      <span><span class="dot" style="background:var(--escrow)"></span>collateral-only escrow (cannot be borrowed out)</span>
+      <span><span class="dot" style="background:var(--good)"></span>swap inventory (USDC + stable)</span>
+    </div>
+    <p class="muted" id="archNote"></p>
+  </section>
+
+  <section class="card" id="liveCard" hidden>
+    <h2>Live pool state</h2>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section class="card" id="curveCard" hidden>
+    <h2>Swap depth — effective price & price impact vs trade size</h2>
+    <svg id="chart" viewBox="0 0 1000 320" width="100%" height="320"></svg>
+    <table id="curveTable"></table>
+    <p class="muted">Effective price is output-per-input normalized to the 1:1 peg. The curve stays flat near $1
+    (concentration ≈ 1) until the trade approaches the seeded inventory; this template is unleveraged, so the pool
+    draws inventory down to the equilibrium reserves and does not borrow.</p>
+  </section>
+</main>
+
+<script type="module">
+import { createPublicClient, http, getAddress } from 'https://esm.sh/viem@2';
+
+// ── Market config: mirrors script/BootstrapMarketBase.sol (default RLUSD market) ──
+const ARCH = {
+  borrowable: [
+    { sym: 'USDC', meta: '4% IRM' }, { sym: 'USDT', meta: '4% IRM' },
+    { sym: 'RLUSD', meta: '4% IRM · bootstrapped' }, { sym: 'WETH', meta: '2.5% IRM' },
+  ],
+  escrow: [
+    { sym: 'USDC', inv: true }, { sym: 'RLUSD', inv: true }, { sym: 'USDT' },
+    { sym: 'cbBTC' }, { sym: 'WBTC' }, { sym: 'WETH' }, { sym: 'wstETH' }, { sym: 'cbETH' },
+  ],
+  ltvTiers: [
+    ['stable ↔ stable', '0.95 / 0.96'],
+    ['BTC·ETH → stable, stable → WETH', '0.80 / 0.85'],
+    ['BTC → WETH', '0.78 / 0.83'],
+    ['LST → stable', '0.85 / 0.87'],
+    ['LST → WETH (correlated)', '0.94 / 0.95'],
+  ],
+};
+
+// ── ABIs (minimal) ──
+const POOL_ABI = [
+  { name: 'getReserves', stateMutability: 'view', inputs: [], outputs: [
+    { type: 'uint112' }, { type: 'uint112' }, { type: 'uint32' } ] },
+  { name: 'computeQuote', stateMutability: 'view', inputs: [
+    { type: 'address' }, { type: 'address' }, { type: 'uint256' }, { type: 'bool' } ],
+    outputs: [ { type: 'uint256' } ] },
+  { name: 'getDynamicParams', stateMutability: 'view', inputs: [], outputs: [ { type: 'tuple', components: [
+    { name: 'equilibriumReserve0', type: 'uint112' }, { name: 'equilibriumReserve1', type: 'uint112' },
+    { name: 'minReserve0', type: 'uint112' }, { name: 'minReserve1', type: 'uint112' },
+    { name: 'priceX', type: 'uint80' }, { name: 'priceY', type: 'uint80' },
+    { name: 'concentrationX', type: 'uint64' }, { name: 'concentrationY', type: 'uint64' },
+    { name: 'fee0', type: 'uint64' }, { name: 'fee1', type: 'uint64' },
+    { name: 'expiration', type: 'uint40' }, { name: 'swapHookedOperations', type: 'uint8' },
+    { name: 'swapHook', type: 'address' } ] } ] },
+];
+const ERC20_ABI = [
+  { name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
+  { name: 'symbol', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+];
+
+// ── Render the static architecture ──
+function chip(t, cls) {
+  return `<span class="chip ${cls} ${t.inv ? 'inv' : ''}">${t.sym}${t.meta ? `<span class="meta">${t.meta}</span>` : ''}</span>`;
+}
+function renderArch() {
+  const tiers = [
+    `<div class="tier"><span class="name">Borrowable</span><div class="chips">${ARCH.borrowable.map(t => chip(t, 'borrow')).join('')}</div></div>`,
+    `<div class="tier"><span class="name">Escrow collateral</span><div class="chips">${ARCH.escrow.map(t => chip(t, 'escrow')).join('')}</div></div>`,
+    `<div class="tier"><span class="name">LTV tiers (B / L)</span><div class="chips">${
+      ARCH.ltvTiers.map(([n, v]) => `<span class="chip" style="border-style:dashed">${n}<span class="meta">${v}</span></span>`).join('')
+    }</div></div>`,
+  ];
+  document.getElementById('arch').innerHTML = tiers.join('');
+  document.getElementById('archNote').textContent =
+    'Static view from BootstrapMarketBase defaults: 4 borrowable controllers + 8 collateral-only escrows, all ungoverned/immutable. Swap inventory (outlined) is ring-fenced in the escrows.';
+}
+renderArch();
+
+// ── helpers ──
+const fmt = (x, d = 2) => Number(x).toLocaleString(undefined, { maximumFractionDigits: d });
+const pow10 = (n) => 10 ** Number(n);
+function setStatus(msg, cls = '') { const s = document.getElementById('status'); s.textContent = msg; s.className = 'status ' + cls; }
+
+// ── Load + render live data ──
+document.getElementById('cfg').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const rpc = document.getElementById('rpc').value.trim();
+  const poolRaw = document.getElementById('pool').value.trim();
+  if (!rpc || !poolRaw) { setStatus('RPC URL and pool address are both required.', 'err'); return; }
+  let pool, tokenA, tokenB;
+  try {
+    pool = getAddress(poolRaw);
+    tokenA = getAddress(document.getElementById('tokenA').value.trim());
+    tokenB = getAddress(document.getElementById('tokenB').value.trim());
+  } catch { setStatus('One of the addresses is malformed.', 'err'); return; }
+
+  document.getElementById('go').disabled = true;
+  setStatus('Connecting…');
+  try {
+    const client = createPublicClient({ transport: http(rpc) });
+    const [decA, decB, symA, symB] = await Promise.all([
+      client.readContract({ address: tokenA, abi: ERC20_ABI, functionName: 'decimals' }),
+      client.readContract({ address: tokenB, abi: ERC20_ABI, functionName: 'decimals' }),
+      client.readContract({ address: tokenA, abi: ERC20_ABI, functionName: 'symbol' }).catch(() => 'TKN-A'),
+      client.readContract({ address: tokenB, abi: ERC20_ABI, functionName: 'symbol' }).catch(() => 'TKN-B'),
+    ]);
+
+    const [reserves, params] = await Promise.all([
+      client.readContract({ address: pool, abi: POOL_ABI, functionName: 'getReserves' }),
+      client.readContract({ address: pool, abi: POOL_ABI, functionName: 'getDynamicParams' }),
+    ]);
+
+    // token0 = lower address (EulerSwap convention)
+    const aIs0 = BigInt(tokenA) < BigInt(tokenB);
+    const dec0 = aIs0 ? decA : decB, dec1 = aIs0 ? decB : decA;
+    const sym0 = aIs0 ? symA : symB, sym1 = aIs0 ? symB : symA;
+    const r0 = Number(reserves[0]) / pow10(dec0), r1 = Number(reserves[1]) / pow10(dec1);
+    const eq0 = Number(params.equilibriumReserve0) / pow10(dec0), eq1 = Number(params.equilibriumReserve1) / pow10(dec1);
+    const feeBps = Number(params.fee0) / 1e14; // 1e14 = 1 bps
+    const conc = Number(params.concentrationX) / 1e18;
+
+    document.getElementById('stats').innerHTML = [
+      ['Reserve ' + sym0, fmt(r0, 0)], ['Reserve ' + sym1, fmt(r1, 0)],
+      ['Equilibrium ' + sym0, fmt(eq0, 0)], ['Equilibrium ' + sym1, fmt(eq1, 0)],
+      ['Swap fee', feeBps.toFixed(2) + ' <small>bps</small>'],
+      ['Concentration', conc.toFixed(4)],
+    ].map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+    document.getElementById('liveCard').hidden = false;
+
+    // ── sample the quote curve in both directions ──
+    setStatus('Sampling quote curve…');
+    const fracs = [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99];
+    // size relative to the USDC-side inventory (token A)
+    const baseA = aIs0 ? eq0 : eq1; // human USDC equilibrium
+    const rows = [];
+    for (const f of fracs) {
+      const sizeA = baseA * f;
+      const inA = BigInt(Math.floor(sizeA * pow10(decA)));
+      if (inA === 0n) continue;
+      // A -> B (sell USDC for stable)
+      let outB = null, pxAB = null, impAB = null;
+      try {
+        outB = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'computeQuote', args: [tokenA, tokenB, inA, true] });
+        const outBh = Number(outB) / pow10(decB);
+        pxAB = outBh / sizeA;            // stable per USDC, ~1
+        impAB = (1 - pxAB) * 1e4;        // bps below peg (incl. fee)
+      } catch {}
+      // B -> A (sell stable for USDC), same notional in stable
+      let pxBA = null, impBA = null;
+      try {
+        const inB = BigInt(Math.floor(sizeA * pow10(decB)));
+        const outA = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'computeQuote', args: [tokenB, tokenA, inB, true] });
+        const outAh = Number(outA) / pow10(decA);
+        pxBA = outAh / sizeA;
+        impBA = (1 - pxBA) * 1e4;
+      } catch {}
+      rows.push({ sizeA, pxAB, impAB, pxBA, impBA });
+    }
+    renderCurve(rows, symA, symB);
+    document.getElementById('curveCard').hidden = false;
+    setStatus(`Loaded. Pool pairs ${sym0}/${sym1}; token0 = ${sym0}.`, 'ok');
+  } catch (err) {
+    console.error(err);
+    setStatus('Read failed: ' + (err?.shortMessage || err?.message || String(err)), 'err');
+  } finally {
+    document.getElementById('go').disabled = false;
+  }
+});
+
+function renderCurve(rows, symA, symB) {
+  // table
+  const t = document.getElementById('curveTable');
+  t.innerHTML = `<tr><th>Trade size (${symA})</th><th>${symA}→${symB} px</th><th>impact (bps)</th>`
+    + `<th>${symB}→${symA} px</th><th>impact (bps)</th></tr>`
+    + rows.map(r => `<tr><td>${fmt(r.sizeA, 0)}</td>`
+      + `<td>${r.pxAB == null ? '—' : r.pxAB.toFixed(5)}</td><td>${r.impAB == null ? '—' : r.impAB.toFixed(1)}</td>`
+      + `<td>${r.pxBA == null ? '—' : r.pxBA.toFixed(5)}</td><td>${r.impBA == null ? '—' : r.impBA.toFixed(1)}</td></tr>`).join('');
+
+  // SVG line chart: price impact (bps, y) vs trade size (x)
+  const W = 1000, H = 320, padL = 56, padR = 16, padT = 16, padB = 40;
+  const xs = rows.map(r => r.sizeA);
+  const ys = rows.flatMap(r => [r.impAB, r.impBA]).filter(v => v != null);
+  const xMax = Math.max(...xs), yMax = Math.max(1, ...ys);
+  const X = (v) => padL + (v / xMax) * (W - padL - padR);
+  const Y = (v) => H - padB - (v / yMax) * (H - padT - padB);
+  const line = (key, color) => {
+    const pts = rows.filter(r => r[key] != null).map(r => `${X(r.sizeA)},${Y(r[key])}`).join(' ');
+    return `<polyline fill="none" stroke="${color}" stroke-width="2" points="${pts}" />`
+      + rows.filter(r => r[key] != null).map(r => `<circle cx="${X(r.sizeA)}" cy="${Y(r[key])}" r="2.5" fill="${color}" />`).join('');
+  };
+  const yticks = [0, 0.25, 0.5, 0.75, 1].map(f => f * yMax);
+  const xticks = [0, 0.25, 0.5, 0.75, 1].map(f => f * xMax);
+  const grid = yticks.map(v => `<line x1="${padL}" y1="${Y(v)}" x2="${W - padR}" y2="${Y(v)}" stroke="#2a2f3a" />`
+    + `<text x="${padL - 8}" y="${Y(v) + 3}" text-anchor="end">${v.toFixed(1)}</text>`).join('')
+    + xticks.map(v => `<text x="${X(v)}" y="${H - padB + 16}" text-anchor="middle">${fmt(v, 0)}</text>`).join('');
+  document.getElementById('chart').innerHTML = grid
+    + line('impAB', '#6ea8fe') + line('impBA', '#57d9a3')
+    + `<text x="${padL}" y="12">price impact (bps)</text>`
+    + `<text x="${W - padR}" y="${H - 6}" text-anchor="end">trade size (${symA})</text>`
+    + `<g transform="translate(${W - 220},24)">`
+    + `<rect x="0" y="-10" width="8" height="8" fill="#6ea8fe"/><text x="14" y="-3" fill="#9aa3b2">${symA}→${symB}</text>`
+    + `<rect x="80" y="-10" width="8" height="8" fill="#57d9a3"/><text x="94" y="-3" fill="#9aa3b2">${symB}→${symA}</text></g>`;
+}
+
+// Prefill from URL query params (?rpc=…&pool=…) for shareable links
+const q = new URLSearchParams(location.search);
+for (const id of ['rpc', 'pool', 'tokenA', 'tokenB']) if (q.get(id)) document.getElementById(id).value = q.get(id);
+if (q.get('rpc') && q.get('pool')) document.getElementById('go').click();
+</script>
+</body>
+</html>

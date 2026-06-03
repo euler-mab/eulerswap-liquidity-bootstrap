@@ -153,20 +153,32 @@ right tool. Per-vault instances let each asset run its own curve:
 
 ### The LTV matrix
 
-Loan-to-value is set per (collateral → controller) pair. The tiers:
+Loan-to-value is set per (collateral → controller) pair. Rows are what you **deposit**,
+columns are what you can **borrow** against it; each cell is **borrow LTV / liquidation
+LTV** (`—` = not accepted as collateral for that asset). Only USDC, USDT, RLUSD and WETH
+are borrowable, so those are the only columns.
 
-| Collateral → Controller | Borrow / Liq LTV | Why |
-|-------------------------|:----------------:|-----|
-| stable → stable | 0.95 / 0.96 | The loop + cross; stables track each other |
-| BTC / WETH → stables | 0.80 / 0.85 | Volatile collateral backing stables |
-| stables → WETH | 0.80 / 0.85 | Borrow ETH against stables |
-| BTC → WETH | 0.78 / 0.83 | Cross-volatile |
-| wstETH / cbETH → stables | 0.85 / 0.87 | LST backing stables |
-| **wstETH / cbETH → WETH** | **0.94 / 0.95** | **LST leverage — highly correlated to ETH** |
+| Deposit ↓ \ Borrow → | USDC | USDT | RLUSD | WETH |
+|----------------------|:---------:|:---------:|:---------:|:-------------:|
+| **USDC**   | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 |
+| **USDT**   | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 |
+| **RLUSD**  | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 |
+| **cbBTC**  | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | 0.78/0.83 |
+| **WBTC**   | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | 0.78/0.83 |
+| **WETH**   | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | — |
+| **wstETH** | 0.85/0.87 | 0.85/0.87 | 0.85/0.87 | **0.94/0.95** |
+| **cbETH**  | 0.85/0.87 | 0.85/0.87 | 0.85/0.87 | **0.94/0.95** |
 
-The high LST→WETH LTV is the classic staked-ETH leverage play: deposit wstETH, borrow
-WETH at 0.94, and the position barely moves because wstETH *is* staked ETH. LTV tiers are
-informed by Euler's own mainnet PrimeCluster.
+The shape, in words:
+
+- **Stables back stables at 0.95** — the diagonal is the self-loop (USDC→USDC) and the
+  off-diagonal is the cross (RLUSD→USDC) that the bootstrap relies on.
+- **BTC, ETH and the LSTs back stables** at 0.80–0.85 — this is the organic borrow demand.
+- **wstETH / cbETH back WETH at 0.94** — the classic staked-ETH leverage play: deposit
+  wstETH, borrow WETH, and the position barely moves because wstETH *is* staked ETH.
+
+These tiers live as named constants (`LTV_STABLE_*`, `LTV_VOL_*`, `LTV_LST_ETH_*`, …) and
+are informed by Euler's own mainnet PrimeCluster.
 
 ### Ungoverned by construction
 
