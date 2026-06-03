@@ -6,7 +6,7 @@ Every team launching a new stablecoin hits the same wall: you need deep, reliabl
 
 A quick word on what "bootstrapping" means here. Usually it describes a project paying to *onboard* liquidity - emissions, a market-maker retainer, a listing deal. You can run this strategy that way too: instead of supplying the inventory yourself, you incentivise others to supply it. The nuance is *which* asset the incentives sit on - it's the asset you borrow to hand out (USDC or USDT), not your own stablecoin. Reward USDC/USDT lenders and you deepen the exact vault your exit liquidity is drawn from. But the more interesting route is to provide that inventory yourself, by LPing directly - and on EulerSwap that's cheap enough the incentive bill mostly disappears.
 
-Either way the mechanism is the same, and it falls straight out of how EulerSwap v2 works. You manufacture exit liquidity out of a lending market, and the all-in cost can land around 2–3% a year. We'll use **RLUSD** as the worked example throughout - swap in your own stablecoin anywhere you see it.
+Either way the mechanism is the same, and it falls straight out of how EulerSwap v2 works. EulerSwap is an automated market maker - a swap pool, like Uniswap - but it runs directly on top of Euler's lending vaults, so the same dollars can be collateral *and* trading liquidity at once. You manufacture exit liquidity out of a lending market, and the all-in cost can land around 2–3% a year. We'll use **RLUSD** as the worked example throughout - swap in your own stablecoin anywhere you see it.
 
 Here's the idea.
 
@@ -27,7 +27,7 @@ Deploy four Euler vaults:
 - USDC Escrow - collateral only, can't be borrowed from
 - RLUSD Escrow - collateral only
 
-Wire up cross-collateral between them through the EVC, and you've got a self-contained RLUSD⇄USDC money market. (We pair RLUSD with USDC here, but USDT works just as well as the counter-asset - or run both RLUSD⇄USDC and RLUSD⇄USDT pools for wider coverage and better routing.)
+Let each vault's deposits count as collateral for borrowing from the others (Euler's vault connector, the EVC, wires this up), and you've got a self-contained RLUSD⇄USDC money market. (We pair RLUSD with USDC here, but USDT works just as well as the counter-asset - or run both RLUSD⇄USDC and RLUSD⇄USDT pools for wider coverage and better routing.)
 
 Two of those are **collateral-only vaults** - in Euler's world they're called *escrow* vaults. They do one thing: hold assets you can post as collateral, with nothing borrowable out of them. The nice part is that here the collateral does double duty - it's also the inventory EulerSwap hands to swappers. Because it can never be borrowed away, your swap liquidity can't be drained by the money market, even with the borrowable vaults wide open.
 
@@ -35,7 +35,9 @@ Step back and the whole structure is simpler than it sounds: you're running a le
 
 ![A swap routes through ring-fenced escrow inventory: RLUSD in to escrow, USDC out from borrowed inventory, while the borrowable money market stays separate](../assets/2-mechanism.png)
 
-Now build the position. At 0.95 LTV both ways, the looping math is generous - 1M of stable collateral can back up to ~20×, roughly 20M of borrowed inventory. We'll run it well within that. With ~$2M of equity (say 1M RLUSD + 1M USDC), deposit the RLUSD into its escrow and loop USDC until you hold ~11M USDC in escrow against 10M USDC of debt - about half your borrowing power, leaving a wide health buffer. Net: 11M USDC collateral, 10M debt, 1M RLUSD.
+Now build the position. Stablecoins back each other well - you can borrow about 95¢ against every $1 of collateral (a 0.95 loan-to-value, or "LTV"). You amplify that by *looping*: deposit USDC, borrow a little more against it, deposit that too, and repeat. A thin slice of equity ends up backing a large pile of inventory - ~$1M of stable collateral can support up to ~20× it, roughly $20M.
+
+We'll run well within that. With ~$2M of equity (say 1M RLUSD + 1M USDC), deposit the RLUSD into its escrow and loop USDC until you hold ~11M USDC in escrow against 10M USDC of debt - about half your borrowing power, leaving a wide safety buffer. Net: 11M USDC collateral, 10M debt, 1M RLUSD - so ~$2M of your own money is now backing $10M of live trading inventory.
 
 Flip on EulerSwap for the RLUSD→USDC pair, and that 10M of borrowed USDC becomes live exit liquidity. When someone swaps RLUSD in, their RLUSD lands in the RLUSD escrow and USDC flows out to them from inventory. Because both legs sit at ~$1, the book stays roughly 1:1 collateralized the whole way.
 
@@ -93,8 +95,8 @@ It's validated end-to-end against a mainnet fork: the liquid-staking cross-oracl
 
 This is a leveraged stable position, so treat it like one:
 
-- If RLUSD depegs, your collateral drops while your debt doesn't. Size LTVs conservatively.
+- If RLUSD depegs (trades below $1), your collateral drops while your debt doesn't. Size LTVs conservatively.
 - USDC borrow cost rises with utilization. Organic borrowers deepen the market but also compete for the same USDC, so keep the supply side healthy.
-- Watch your health factor.
+- Watch your health factor - the buffer the position has before it can be liquidated.
 
 Cheap isn't free. But for a stablecoin issuer, this turns liquidity bootstrapping from a recurring market-maker invoice into a financing decision you control - one that a healthy money market can largely pay for itself.
