@@ -222,7 +222,9 @@ borrows from the borrowable vaults to service larger flow. Then:
 
 Borrowing requires those borrowable vaults to have lender liquidity — which is the whole
 point of opening the mini-market to cbBTC/WBTC/WETH/LST collateral: organic borrowers and
-yield-seeking lenders deepen the book you draw on.
+yield-seeking lenders deepen the book you draw on. If you'd rather kick-start that supply
+with incentives, they go on the asset you *borrow* (USDC/USDT) — rewarding lenders there
+deepens the exact vault your exit liquidity draws from, not your own stablecoin.
 
 ---
 
