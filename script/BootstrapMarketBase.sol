@@ -76,14 +76,16 @@ abstract contract BootstrapMarketBase is Script {
     uint16 constant LTV_LST_ETH_B = 0.94e4; // wstETH/cbETH -> WETH (high, correlated)
     uint16 constant LTV_LST_ETH_L = 0.95e4;
 
-    // ───────────── Reactive interest-rate model (Adaptive Curve, shared) ────────
+    // ───────────── Reactive interest-rate model (Adaptive Curve) ────────────────
     // Ungoverned markets are immutable, so a static kink IRM could never be retuned.
     // The adaptive curve self-adjusts the rate-at-target to hold utilization near
-    // TARGET — no governance. One instance is shared by all borrowable vaults (state
-    // is keyed per-vault). Rates are WAD-per-second; `Xe18 / YEAR` reads as "X APR".
+    // TARGET — no governance. Each borrowable vault gets its OWN IRM instance so the
+    // curve can be tuned per asset (stables vs ETH here). Rates are WAD-per-second;
+    // `Xe18 / YEAR` reads as "X APR". Bounds are shared; initial rate-at-target varies.
     int256 constant YEAR = int256(365.2425 days);
     int256 constant IRM_TARGET_UTILIZATION = 0.90e18;
-    int256 constant IRM_INITIAL_RATE_AT_TARGET = 0.04e18 / YEAR; // 4% APR
+    int256 constant IRM_INIT_RATE_STABLE = 0.04e18 / YEAR; // 4% APR at target (stables)
+    int256 constant IRM_INIT_RATE_ETH = 0.025e18 / YEAR; // 2.5% APR at target (WETH)
     int256 constant IRM_MIN_RATE_AT_TARGET = 0.001e18 / YEAR; // 0.1% APR
     int256 constant IRM_MAX_RATE_AT_TARGET = 2e18 / YEAR; // 200% APR
     int256 constant IRM_CURVE_STEEPNESS = 4e18;
@@ -131,18 +133,15 @@ abstract contract BootstrapMarketBase is Script {
         public
         returns (Deployment memory d)
     {
-        address irm = IEulerAdaptiveCurveIRMFactory(ADAPTIVE_CURVE_IRM_FACTORY).deploy(
-            IRM_TARGET_UTILIZATION,
-            IRM_INITIAL_RATE_AT_TARGET,
-            IRM_MIN_RATE_AT_TARGET,
-            IRM_MAX_RATE_AT_TARGET,
-            IRM_CURVE_STEEPNESS,
-            IRM_ADJUSTMENT_SPEED
-        );
+        // Each borrowable vault gets its own IRM instance (independent state + params).
+        address irmUSDC = _deployIRM(IRM_INIT_RATE_STABLE);
+        address irmUSDT = _deployIRM(IRM_INIT_RATE_STABLE);
+        address irmStable = _deployIRM(IRM_INIT_RATE_STABLE);
+        address irmWETH = _deployIRM(IRM_INIT_RATE_ETH);
 
         (address router, address[] memory v) = IEdgeFactory(EDGE_FACTORY).deploy(
             IEdgeFactory.DeployParams({
-                vaults: _vaults(irm),
+                vaults: _vaults(irmUSDC, irmUSDT, irmStable, irmWETH),
                 router: IEdgeFactory.RouterParams({externalResolvedVaults: new address[](0), adapters: _adapters()}),
                 ltv: _ltvs(),
                 unitOfAccount: USD
@@ -174,13 +173,30 @@ abstract contract BootstrapMarketBase is Script {
 
     // ───────────────────────────── build edge params ───────────────────────────
 
-    function _vaults(address irm) internal pure returns (IEdgeFactory.VaultParams[] memory vp) {
+    /// @dev Deploy a fresh adaptive-curve IRM. Shared bounds/target/steepness/speed;
+    ///      `initialRateAtTarget` lets each vault start on its own curve.
+    function _deployIRM(int256 initialRateAtTarget) internal returns (address) {
+        return IEulerAdaptiveCurveIRMFactory(ADAPTIVE_CURVE_IRM_FACTORY).deploy(
+            IRM_TARGET_UTILIZATION,
+            initialRateAtTarget,
+            IRM_MIN_RATE_AT_TARGET,
+            IRM_MAX_RATE_AT_TARGET,
+            IRM_CURVE_STEEPNESS,
+            IRM_ADJUSTMENT_SPEED
+        );
+    }
+
+    function _vaults(address irmUSDC, address irmUSDT, address irmStable, address irmWETH)
+        internal
+        pure
+        returns (IEdgeFactory.VaultParams[] memory vp)
+    {
         vp = new IEdgeFactory.VaultParams[](12);
-        // borrowable (controllers)
-        vp[BORROW_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: irm, escrow: false});
-        vp[BORROW_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: irm, escrow: false});
-        vp[BORROW_STABLE] = IEdgeFactory.VaultParams({asset: STABLE, irm: irm, escrow: false});
-        vp[BORROW_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: irm, escrow: false});
+        // borrowable (controllers) — each with its own IRM
+        vp[BORROW_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: irmUSDC, escrow: false});
+        vp[BORROW_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: irmUSDT, escrow: false});
+        vp[BORROW_STABLE] = IEdgeFactory.VaultParams({asset: STABLE, irm: irmStable, escrow: false});
+        vp[BORROW_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: irmWETH, escrow: false});
         // collateral-only (escrow)
         vp[ESC_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: address(0), escrow: true});
         vp[ESC_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: address(0), escrow: true});

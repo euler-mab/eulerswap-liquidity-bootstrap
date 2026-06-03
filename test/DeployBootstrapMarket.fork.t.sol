@@ -44,6 +44,17 @@ contract DeployBootstrapMarketForkTest is Test {
         assertEq(IEVault(d.borrowStable).governorAdmin(), address(0), "RLUSD governed");
         assertEq(IEVault(d.borrowWETH).governorAdmin(), address(0), "WETH governed");
 
+        // Each borrowable vault has its OWN IRM instance (WETH on its own ETH curve).
+        address irmUSDC = IEVault(d.borrowUSDC).interestRateModel();
+        address irmUSDT = IEVault(d.borrowUSDT).interestRateModel();
+        address irmStable = IEVault(d.borrowStable).interestRateModel();
+        address irmWETH = IEVault(d.borrowWETH).interestRateModel();
+        assertTrue(
+            irmUSDC != irmUSDT && irmUSDC != irmStable && irmUSDC != irmWETH && irmUSDT != irmStable
+                && irmUSDT != irmWETH && irmStable != irmWETH,
+            "IRMs not distinct per vault"
+        );
+
         // 2. Collateral matrix wired as intended.
         assertEq(IEVault(d.borrowStable).LTVBorrow(d.escrowUSDC), 0.95e4, "USDC -> RLUSD (cross)");
         assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowStable), 0.95e4, "RLUSD -> USDC (cross)");

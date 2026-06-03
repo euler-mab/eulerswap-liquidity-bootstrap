@@ -33,6 +33,7 @@ interface IEVault {
     function convertToAssets(uint256 shares) external view returns (uint256);
     function debtOf(address account) external view returns (uint256);
     function governorAdmin() external view returns (address);
+    function interestRateModel() external view returns (address);
     function LTVBorrow(address collateral) external view returns (uint16);
     function oracle() external view returns (address);
     function unitOfAccount() external view returns (address);

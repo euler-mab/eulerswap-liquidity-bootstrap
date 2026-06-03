@@ -84,9 +84,9 @@ In one `deployMarket(...)` call:
 
 1. **Price adapters → USD**: Chainlink for USDC/USDT/cbBTC/WBTC/WETH, `FixedRateOracle($1)`
    for RLUSD, and Euler's own wstETH/cbETH **cross adapters** (Lido / Chainlink × ETH-USD).
-2. **A reactive adaptive-curve IRM**, shared across the borrowable vaults — it self-tunes
-   the rate toward target utilization, the right choice for an immutable market that can
-   never be retuned.
+2. **A reactive adaptive-curve IRM per borrowable vault** — each self-tunes its rate
+   toward target utilization (the right choice for an immutable market that can never be
+   retuned), with its own curve per asset (stables vs ETH).
 3. **An Edge market** via the canonical `EdgeFactory`: borrowable USDC/USDT/RLUSD/WETH +
    collateral-only escrow vaults (USDC/USDT/RLUSD/cbBTC/WBTC/WETH/wstETH/cbETH), a fresh
    `EulerRouter`, the full LTV matrix — then **all governance renounced** (immutable).
