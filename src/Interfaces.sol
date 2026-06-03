@@ -38,13 +38,19 @@ interface IEVault {
     function unitOfAccount() external view returns (address);
 }
 
-/// @notice Minimal kink interest-rate-model factory (evk-periphery IRMFactory).
-interface IEulerKinkIRMFactory {
-    /// @param baseRate  per-second base rate, WAD-per-second scaled (see EVK IRMLinearKink)
-    /// @param slope1    slope below the kink
-    /// @param slope2    slope above the kink
-    /// @param kink      utilisation kink, scaled to type(uint32).max = 100%
-    function deploy(uint256 baseRate, uint256 slope1, uint256 slope2, uint32 kink) external returns (address);
+/// @notice Adaptive-curve (reactive) IRM factory (evk-periphery IRMFactory).
+/// @dev The rate-at-target self-adjusts toward keeping utilization at target — the
+///      right choice for an immutable/ungoverned market that can never be retuned.
+///      Rates are WAD-per-second; TARGET_UTILIZATION/CURVE_STEEPNESS are WAD.
+interface IEulerAdaptiveCurveIRMFactory {
+    function deploy(
+        int256 targetUtilization,
+        int256 initialRateAtTarget,
+        int256 minRateAtTarget,
+        int256 maxRateAtTarget,
+        int256 curveSteepness,
+        int256 adjustmentSpeed
+    ) external returns (address);
 }
 
 /// @notice EdgeFactory — one-shot ungoverned market deployer (evk-periphery).

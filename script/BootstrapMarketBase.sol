@@ -7,7 +7,7 @@ import {
     IERC20,
     IEVC,
     IEVault,
-    IEulerKinkIRMFactory,
+    IEulerAdaptiveCurveIRMFactory,
     IEdgeFactory,
     IEulerSwap,
     IEulerSwapFactory
@@ -38,7 +38,7 @@ abstract contract BootstrapMarketBase is Script {
     address constant EVC = 0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383;
     address constant EDGE_FACTORY = 0xA969B8a46166B135fD5AC533AdC28c816E1659Bd;
     address constant EULERSWAP_FACTORY = 0xD05213331221fAB8a3C387F2affBb605Bb04DF5F;
-    address constant KINK_IRM_FACTORY = 0xcAe0A39B45Ee9C3213f64392FA6DF30CE034C9F9;
+    address constant ADAPTIVE_CURVE_IRM_FACTORY = 0x3EC2d5af936bBB57DD19C292BAfb89da0E377F42;
     address constant USD = address(840); // unit of account (== 0x...0348), 18 decimals
 
     // ───────────────────────────── Tokens (mainnet) ────────────────────────────
@@ -60,13 +60,19 @@ abstract contract BootstrapMarketBase is Script {
     uint16 constant VOL_BORROW_LTV = 0.80e4; // cbBTC / WETH collateral
     uint16 constant VOL_LIQ_LTV = 0.85e4;
 
-    // ───────────────── Interest-rate model (EXAMPLE — calibrate) ────────────────
-    // EVK IRMLinearKink: rates are 1e27-per-second (ray/sec). ~5% APY at the 90%
-    // kink, ramping to ~50% APY at 100%. Review with Euler's IRM tooling.
-    uint256 constant IRM_BASE_RATE = 0;
-    uint256 constant IRM_SLOPE1 = 409_900_000;
-    uint256 constant IRM_SLOPE2 = 33_200_000_000;
-    uint32 constant IRM_KINK = 3_865_470_566; // 90% of type(uint32).max
+    // ───────────── Reactive interest-rate model (Adaptive Curve) ────────────────
+    // Ungoverned markets are immutable, so a static kink IRM could never be retuned.
+    // The adaptive curve continuously nudges the rate-at-target up/down to hold
+    // utilization near TARGET — self-correcting without governance. Rates are
+    // WAD-per-second; `Xe18 / YEAR` reads as "X (as a fraction) APR". These are the
+    // canonical adaptive-curve values; still review for your market.
+    int256 constant YEAR = int256(365.2425 days);
+    int256 constant IRM_TARGET_UTILIZATION = 0.90e18; // 90%
+    int256 constant IRM_INITIAL_RATE_AT_TARGET = 0.04e18 / YEAR; // 4% APR at target
+    int256 constant IRM_MIN_RATE_AT_TARGET = 0.001e18 / YEAR; // 0.1% APR floor
+    int256 constant IRM_MAX_RATE_AT_TARGET = 2e18 / YEAR; // 200% APR ceiling
+    int256 constant IRM_CURVE_STEEPNESS = 4e18; // 4x slope above target
+    int256 constant IRM_ADJUSTMENT_SPEED = 50e18 / YEAR; // rate-at-target adjust speed
 
     // ──────────────────────────── Pool curve params ────────────────────────────
     uint64 constant CONCENTRATION = 0.9999e18; // near constant-sum for a $1 peg
@@ -100,7 +106,14 @@ abstract contract BootstrapMarketBase is Script {
         address aUSDC = address(new ChainlinkOracle(USDC, USD, FEED_USDC_USD, FEED_STALENESS));
         address aCBBTC = address(new ChainlinkOracle(CBBTC, USD, FEED_BTC_USD, FEED_STALENESS));
         address aWETH = address(new ChainlinkOracle(WETH, USD, FEED_ETH_USD, FEED_STALENESS));
-        address irm = IEulerKinkIRMFactory(KINK_IRM_FACTORY).deploy(IRM_BASE_RATE, IRM_SLOPE1, IRM_SLOPE2, IRM_KINK);
+        address irm = IEulerAdaptiveCurveIRMFactory(ADAPTIVE_CURVE_IRM_FACTORY).deploy(
+            IRM_TARGET_UTILIZATION,
+            IRM_INITIAL_RATE_AT_TARGET,
+            IRM_MIN_RATE_AT_TARGET,
+            IRM_MAX_RATE_AT_TARGET,
+            IRM_CURVE_STEEPNESS,
+            IRM_ADJUSTMENT_SPEED
+        );
 
         (address router, address[] memory vaults) = _deployEdge(stable, irm, aUSDC, stableAdapter, aCBBTC, aWETH);
         d.router = router;

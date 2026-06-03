@@ -78,7 +78,9 @@ trades actually cluster.
 In one `deployMarket(...)` call:
 
 1. **Four ChainlinkOracle adapters** (USDC, USDT, cbBTC, WETH → USD).
-2. **A kink IRM** for the borrowable stable vaults.
+2. **A reactive adaptive-curve IRM** for the borrowable stable vaults — it self-tunes
+   the rate toward target utilization, which is the right choice for an immutable
+   market that can never be retuned.
 3. **An Edge market** via the canonical `EdgeFactory`: borrowable eUSDC/eUSDT,
    collateral-only escrow vaults for USDC/USDT/cbBTC/WETH, a fresh `EulerRouter`,
    LTVs between them — then **all governance renounced** (vaults + router immutable).
@@ -145,7 +147,7 @@ The defaults are sensible starting points, **not** tuned values. Review:
 | `SEED_USDC` / `SEED_USDT` | 1M each | Your real LP equity (the inventory). |
 | `STABLE_*_LTV` | 0.95 / 0.96 | Stable-vs-stable; drives the loop & cross. |
 | `VOL_*_LTV` | 0.80 / 0.85 | cbBTC / WETH collateral. |
-| `IRM_*` | ~5% @ 90% kink | **Example only** — calibrate with Euler's IRM tooling. |
+| `IRM_*` (adaptive curve) | 4% APR @ 90% target | Reactive — self-adjusts toward target utilization (no governance needed). Canonical values; review for your market. |
 | `CONCENTRATION` | 0.9999e18 | Higher = tighter peg / deeper near $1. |
 | `SWAP_FEE` | 1 bps | The fee that offsets borrow cost. |
 | Chainlink feeds | mainnet | **Verify** against docs.chain.link; cbBTC uses BTC/USD. |
@@ -162,7 +164,8 @@ borrow from the borrowable vaults — which requires those vaults to have lender
 - This is a **leveraged stablecoin position**. A depeg drops your collateral while debt
   stays fixed — size LTVs conservatively.
 - USDC borrow cost rises with utilisation; organic borrowers compete for the same USDC.
-- The IRM and Chainlink feed constants are **examples** — verify and calibrate.
+- The adaptive-curve IRM uses canonical values and the Chainlink feed constants are
+  defaults — verify and review for your market.
 - Ungoverned vaults are **immutable**: parameters cannot be changed after deployment.
 - Unaudited reference code. Fork-test and get a review first.
 
