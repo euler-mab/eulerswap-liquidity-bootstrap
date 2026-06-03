@@ -224,7 +224,9 @@ Borrowing requires those borrowable vaults to have lender liquidity — which is
 point of opening the mini-market to cbBTC/WBTC/WETH/LST collateral: organic borrowers and
 yield-seeking lenders deepen the book you draw on. If you'd rather kick-start that supply
 with incentives, they go on the asset you *borrow* (USDC/USDT) — rewarding lenders there
-deepens the exact vault your exit liquidity draws from, not your own stablecoin.
+deepens the exact vault your exit liquidity draws from, not your own stablecoin. And those
+same rewards do double duty: one spend bootstraps both your exit liquidity *and* the
+lending market itself, which then generates its own organic demand and fees.
 
 ---
 

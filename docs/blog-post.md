@@ -69,6 +69,8 @@ A production-grade version pairs several stablecoins - USDC, USDT and the one yo
 
 That's the flywheel made concrete: RLUSD ships inside a money market people already want to use, and the borrow demand that market generates is what makes your liquidity cheap. The LST collateral, the BTC, the ETH borrowing - none of it can touch your swap inventory, which stays ring-fenced in escrow the whole time.
 
+And here's the neat part if you do reach for incentives: they do double duty. The rewards that deepen your USDC/USDT supply are buying two things at once - the exit liquidity your pool borrows against, *and* the lending market itself. One spend bootstraps both. And once the market is deep, its own organic borrow demand and fees take over, so the incentives can taper off rather than becoming a permanent bill.
+
 ## Make it immutable
 
 Here's a property issuers tend to want and rarely get from a market maker: the rails can't change under you. Deploy the vaults ungoverned - governance renounced at creation - and the collateral set, LTVs and oracles are frozen forever. No multisig, no admin key, no governance vote can touch them.
