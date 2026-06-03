@@ -3,6 +3,9 @@ pragma solidity ^0.8.27;
 
 import {Script, console} from "forge-std/Script.sol";
 import {ChainlinkOracle} from "euler-price-oracle/adapter/chainlink/ChainlinkOracle.sol";
+import {FixedRateOracle} from "euler-price-oracle/adapter/fixed/FixedRateOracle.sol";
+import {CrossAdapter} from "euler-price-oracle/adapter/CrossAdapter.sol";
+import {LidoFundamentalOracle} from "euler-price-oracle/adapter/lido/LidoFundamentalOracle.sol";
 import {
     IERC20,
     IEVC,
@@ -15,24 +18,23 @@ import {
 import {HookMiner} from "../src/HookMiner.sol";
 
 /// @title  BootstrapMarketBase
-/// @notice Shared logic for bootstrapping a USDC/<stable> EulerSwap market out of
-///         UNGOVERNED Euler vaults, with cbBTC + WETH accepted as collateral so the
-///         lending market has organic borrow demand.
+/// @notice Deploys an Aave/Spark-style "mini market" of UNGOVERNED Euler vaults, then
+///         bootstraps liquidity for one stablecoin on top of it with EulerSwap.
 ///
-/// Subclasses supply the second stablecoin (USDT, or your own new stable) and its
-/// price oracle adapter — a Chainlink feed for an established stable, or a
-/// FixedRateOracle($1) for a brand-new one. Everything else is identical.
+/// It's effectively your own immutable lending market with a customisable collateral
+/// set chosen at deploy time:
+///   • Borrowable stables: USDC, USDT, and the stable you're bootstrapping (RLUSD here)
+///   • Borrowable ETH:     WETH
+///   • Collateral:         cbBTC, WBTC, WETH, wstETH, cbETH (edit the lists below)
+///   • Reactive adaptive-curve IRM, prices via Chainlink / FixedRate / Lido cross
+///   • ...then ALL governance renounced — vaults + router are immutable.
 ///
-/// In one deployMarket(...) call:
-///   1. ChainlinkOracle adapters for USDC, cbBTC, WETH -> USD (the `stable` adapter
-///      is built by the subclass and passed in).
-///   2. A kink IRM for the borrowable stable vaults.
-///   3. An Edge market via EdgeFactory: borrowable USDC/<stable>, collateral-only
-///      ESCROW vaults (USDC/<stable>/cbBTC/WETH), a router, LTVs — then ALL
-///      governance renounced (vaults + router immutable).
-///   4. The LP's seed equity deposited into the stable escrow vaults (inventory).
-///   5. A salt-mined USDC/<stable> EulerSwap pool (inventory in escrow, debt in the
-///      borrowable vaults) with the EVC operator installed.
+/// The EulerSwap pool then pairs USDC with the bootstrapped stable; its swap inventory
+/// lives in collateral-only ESCROW vaults (ring-fenced — nothing can be borrowed out of
+/// an escrow vault) while it borrows from the borrowable vaults.
+///
+/// To bootstrap YOUR stablecoin, change `STABLE` to your token. It's priced by a
+/// FixedRateOracle($1); swap in a Chainlink adapter if it has a feed.
 abstract contract BootstrapMarketBase is Script {
     // ─────────────────────────── Euler mainnet infra ───────────────────────────
     address constant EVC = 0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383;
@@ -43,69 +45,92 @@ abstract contract BootstrapMarketBase is Script {
 
     // ───────────────────────────── Tokens (mainnet) ────────────────────────────
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // 6 dec
-    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // 18 dec
+    address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7; // 6 dec
+    address constant STABLE = 0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD; // RLUSD, 18 dec — the one we bootstrap
     address constant CBBTC = 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf; // 8 dec
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599; // 8 dec
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // 18 dec
+    address constant WSTETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0; // 18 dec
+    address constant CBETH = 0xBe9895146f7AF43049ca1c1AE358B0541Ea49704; // 18 dec
 
     // ─────────────────── Chainlink feeds (mainnet aggregators) ──────────────────
     // VERIFY against https://docs.chain.link/data-feeds/price-feeds/addresses.
-    // cbBTC is priced off BTC/USD (cbBTC is 1:1 BTC-backed).
+    // cbBTC + WBTC are priced off BTC/USD. wstETH uses Lido x ETH/USD (Euler's setup);
+    // cbETH uses cbETH/ETH x ETH/USD. RLUSD uses a FixedRateOracle($1).
     address constant FEED_USDC_USD = 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6;
+    address constant FEED_USDT_USD = 0x3E7d1eAB13ad0104d2750B8863b489D65364e32D;
     address constant FEED_ETH_USD = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address constant FEED_BTC_USD = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
+    address constant FEED_CBETH_ETH = 0xF017fcB346A1885194689bA23Eff2fE6fA5C483b;
     uint256 constant FEED_STALENESS = 24 hours;
 
-    // ──────────────────────────── LTVs (1e4 = 100%) ────────────────────────────
-    uint16 constant STABLE_BORROW_LTV = 0.95e4; // stable-vs-stable: the loop / cross
-    uint16 constant STABLE_LIQ_LTV = 0.96e4;
-    uint16 constant VOL_BORROW_LTV = 0.80e4; // cbBTC / WETH collateral
-    uint16 constant VOL_LIQ_LTV = 0.85e4;
+    // ───────────────────────────── LTV tiers (1e4) ─────────────────────────────
+    uint16 constant LTV_STABLE_B = 0.95e4; // stable <-> stable (the loop / cross)
+    uint16 constant LTV_STABLE_L = 0.96e4;
+    uint16 constant LTV_VOL_B = 0.80e4; // BTC/ETH -> stables, stables -> WETH
+    uint16 constant LTV_VOL_L = 0.85e4;
+    uint16 constant LTV_BTC_ETH_B = 0.78e4; // BTC -> WETH
+    uint16 constant LTV_BTC_ETH_L = 0.83e4;
+    uint16 constant LTV_LST_STABLE_B = 0.85e4; // wstETH/cbETH -> stables
+    uint16 constant LTV_LST_STABLE_L = 0.87e4;
+    uint16 constant LTV_LST_ETH_B = 0.94e4; // wstETH/cbETH -> WETH (high, correlated)
+    uint16 constant LTV_LST_ETH_L = 0.95e4;
 
-    // ───────────── Reactive interest-rate model (Adaptive Curve) ────────────────
+    // ───────────── Reactive interest-rate model (Adaptive Curve, shared) ────────
     // Ungoverned markets are immutable, so a static kink IRM could never be retuned.
-    // The adaptive curve continuously nudges the rate-at-target up/down to hold
-    // utilization near TARGET — self-correcting without governance. Rates are
-    // WAD-per-second; `Xe18 / YEAR` reads as "X (as a fraction) APR". These are the
-    // canonical adaptive-curve values; still review for your market.
+    // The adaptive curve self-adjusts the rate-at-target to hold utilization near
+    // TARGET — no governance. One instance is shared by all borrowable vaults (state
+    // is keyed per-vault). Rates are WAD-per-second; `Xe18 / YEAR` reads as "X APR".
     int256 constant YEAR = int256(365.2425 days);
-    int256 constant IRM_TARGET_UTILIZATION = 0.90e18; // 90%
-    int256 constant IRM_INITIAL_RATE_AT_TARGET = 0.04e18 / YEAR; // 4% APR at target
-    int256 constant IRM_MIN_RATE_AT_TARGET = 0.001e18 / YEAR; // 0.1% APR floor
-    int256 constant IRM_MAX_RATE_AT_TARGET = 2e18 / YEAR; // 200% APR ceiling
-    int256 constant IRM_CURVE_STEEPNESS = 4e18; // 4x slope above target
-    int256 constant IRM_ADJUSTMENT_SPEED = 50e18 / YEAR; // rate-at-target adjust speed
+    int256 constant IRM_TARGET_UTILIZATION = 0.90e18;
+    int256 constant IRM_INITIAL_RATE_AT_TARGET = 0.04e18 / YEAR; // 4% APR
+    int256 constant IRM_MIN_RATE_AT_TARGET = 0.001e18 / YEAR; // 0.1% APR
+    int256 constant IRM_MAX_RATE_AT_TARGET = 2e18 / YEAR; // 200% APR
+    int256 constant IRM_CURVE_STEEPNESS = 4e18;
+    int256 constant IRM_ADJUSTMENT_SPEED = 50e18 / YEAR;
 
     // ──────────────────────────── Pool curve params ────────────────────────────
     uint64 constant CONCENTRATION = 0.9999e18; // near constant-sum for a $1 peg
     uint64 constant SWAP_FEE = 1e14; // 1 bps — the fee that offsets borrow cost
 
+    // ─────────────────── Vault indices (EdgeFactory order) ──────────────────────
+    uint256 constant BORROW_USDC = 0;
+    uint256 constant BORROW_USDT = 1;
+    uint256 constant BORROW_STABLE = 2;
+    uint256 constant BORROW_WETH = 3;
+    uint256 constant ESC_USDC = 4;
+    uint256 constant ESC_USDT = 5;
+    uint256 constant ESC_STABLE = 6;
+    uint256 constant ESC_CBBTC = 7;
+    uint256 constant ESC_WBTC = 8;
+    uint256 constant ESC_WETH = 9;
+    uint256 constant ESC_WSTETH = 10;
+    uint256 constant ESC_CBETH = 11;
+
     struct Deployment {
         address router;
-        address borrowUSDC;
-        address borrowStable;
-        address escrowUSDC;
-        address escrowStable;
-        address escrowCBBTC;
-        address escrowWETH;
         address pool;
+        address borrowUSDC;
+        address escrowUSDC;
+        address borrowStable; // RLUSD
+        address escrowStable;
+        address borrowUSDT;
+        address escrowUSDT;
+        address borrowWETH;
+        address escrowWETH;
+        address escrowCBBTC;
+        address escrowWBTC;
+        address escrowWSTETH;
+        address escrowCBETH;
     }
 
-    /// @notice Deploy + configure the whole market and seed the pool.
-    /// @param eulerAccount  Owns the position. MUST equal the caller (msg.sender):
-    ///        the token source for seeds and the EVC account authorizing the operator.
-    /// @param stable        The second stablecoin paired with USDC.
-    /// @param stableAdapter IPriceOracle adapter pricing `stable` -> USD.
-    /// @dev   The pool's asset ordering and decimal-adjusted price are derived
-    ///        automatically — `stable` may sort either side of USDC.
-    function deployMarket(
-        address eulerAccount,
-        address stable,
-        address stableAdapter,
-        uint256 seedUSDC,
-        uint256 seedStable
-    ) public returns (Deployment memory d) {
-        address aUSDC = address(new ChainlinkOracle(USDC, USD, FEED_USDC_USD, FEED_STALENESS));
-        address aCBBTC = address(new ChainlinkOracle(CBBTC, USD, FEED_BTC_USD, FEED_STALENESS));
-        address aWETH = address(new ChainlinkOracle(WETH, USD, FEED_ETH_USD, FEED_STALENESS));
+    /// @notice Deploy the mini market + bootstrap the USDC/STABLE EulerSwap pool.
+    /// @param eulerAccount MUST equal the caller (msg.sender): token source for the
+    ///        seeds and the EVC account that authorizes the pool operator.
+    function deployMarket(address eulerAccount, uint256 seedUSDC, uint256 seedStable)
+        public
+        returns (Deployment memory d)
+    {
         address irm = IEulerAdaptiveCurveIRMFactory(ADAPTIVE_CURVE_IRM_FACTORY).deploy(
             IRM_TARGET_UTILIZATION,
             IRM_INITIAL_RATE_AT_TARGET,
@@ -115,75 +140,125 @@ abstract contract BootstrapMarketBase is Script {
             IRM_ADJUSTMENT_SPEED
         );
 
-        (address router, address[] memory vaults) = _deployEdge(stable, irm, aUSDC, stableAdapter, aCBBTC, aWETH);
-        d.router = router;
-        d.borrowUSDC = vaults[0];
-        d.borrowStable = vaults[1];
-        d.escrowUSDC = vaults[2];
-        d.escrowStable = vaults[3];
-        d.escrowCBBTC = vaults[4];
-        d.escrowWETH = vaults[5];
+        (address router, address[] memory v) = IEdgeFactory(EDGE_FACTORY).deploy(
+            IEdgeFactory.DeployParams({
+                vaults: _vaults(irm),
+                router: IEdgeFactory.RouterParams({externalResolvedVaults: new address[](0), adapters: _adapters()}),
+                ltv: _ltvs(),
+                unitOfAccount: USD
+            })
+        );
 
-        // Seed the LP equity into the stable escrow vaults (the swap inventory).
+        d.router = router;
+        d.borrowUSDC = v[BORROW_USDC];
+        d.borrowUSDT = v[BORROW_USDT];
+        d.borrowStable = v[BORROW_STABLE];
+        d.borrowWETH = v[BORROW_WETH];
+        d.escrowUSDC = v[ESC_USDC];
+        d.escrowUSDT = v[ESC_USDT];
+        d.escrowStable = v[ESC_STABLE];
+        d.escrowCBBTC = v[ESC_CBBTC];
+        d.escrowWBTC = v[ESC_WBTC];
+        d.escrowWETH = v[ESC_WETH];
+        d.escrowWSTETH = v[ESC_WSTETH];
+        d.escrowCBETH = v[ESC_CBETH];
+
+        // Seed the LP equity into the two stable escrow vaults (the swap inventory).
         _safeApprove(USDC, d.escrowUSDC, seedUSDC);
         IEVault(d.escrowUSDC).deposit(seedUSDC, eulerAccount);
-        _safeApprove(stable, d.escrowStable, seedStable);
+        _safeApprove(STABLE, d.escrowStable, seedStable);
         IEVault(d.escrowStable).deposit(seedStable, eulerAccount);
 
-        d.pool = _deployPool(eulerAccount, d, stable, seedUSDC, seedStable);
+        d.pool = _deployPool(eulerAccount, d, seedUSDC, seedStable);
     }
 
-    // ───────────────────────────── internals ──────────────────────────────────
+    // ───────────────────────────── build edge params ───────────────────────────
 
-    function _deployEdge(address stable, address irm, address aUSDC, address aStable, address aCBBTC, address aWETH)
-        internal
-        returns (address router, address[] memory vaults)
-    {
-        IEdgeFactory.VaultParams[] memory vp = new IEdgeFactory.VaultParams[](6);
-        vp[0] = IEdgeFactory.VaultParams({asset: USDC, irm: irm, escrow: false}); // borrowable USDC
-        vp[1] = IEdgeFactory.VaultParams({asset: stable, irm: irm, escrow: false}); // borrowable stable
-        vp[2] = IEdgeFactory.VaultParams({asset: USDC, irm: address(0), escrow: true}); // USDC escrow
-        vp[3] = IEdgeFactory.VaultParams({asset: stable, irm: address(0), escrow: true}); // stable escrow
-        vp[4] = IEdgeFactory.VaultParams({asset: CBBTC, irm: address(0), escrow: true}); // cbBTC escrow
-        vp[5] = IEdgeFactory.VaultParams({asset: WETH, irm: address(0), escrow: true}); // WETH escrow
-
-        IEdgeFactory.AdapterParams[] memory ap = new IEdgeFactory.AdapterParams[](4);
-        ap[0] = IEdgeFactory.AdapterParams({base: USDC, adapter: aUSDC});
-        ap[1] = IEdgeFactory.AdapterParams({base: stable, adapter: aStable});
-        ap[2] = IEdgeFactory.AdapterParams({base: CBBTC, adapter: aCBBTC});
-        ap[3] = IEdgeFactory.AdapterParams({base: WETH, adapter: aWETH});
-
-        // Each borrowable vault (controllers 0,1) accepts all four escrows as
-        // collateral. Stable escrows at 0.95/0.96 (loop + cross); cbBTC/WETH at
-        // 0.80/0.85 (organic borrow demand).
-        IEdgeFactory.LTVParams[] memory lp = new IEdgeFactory.LTVParams[](8);
-        lp[0] = _ltv(2, 0, STABLE_BORROW_LTV, STABLE_LIQ_LTV); // USDC esc   -> borrow USDC
-        lp[1] = _ltv(3, 0, STABLE_BORROW_LTV, STABLE_LIQ_LTV); // stable esc -> borrow USDC
-        lp[2] = _ltv(4, 0, VOL_BORROW_LTV, VOL_LIQ_LTV); // cbBTC      -> borrow USDC
-        lp[3] = _ltv(5, 0, VOL_BORROW_LTV, VOL_LIQ_LTV); // WETH       -> borrow USDC
-        lp[4] = _ltv(2, 1, STABLE_BORROW_LTV, STABLE_LIQ_LTV); // USDC esc   -> borrow stable
-        lp[5] = _ltv(3, 1, STABLE_BORROW_LTV, STABLE_LIQ_LTV); // stable esc -> borrow stable
-        lp[6] = _ltv(4, 1, VOL_BORROW_LTV, VOL_LIQ_LTV); // cbBTC      -> borrow stable
-        lp[7] = _ltv(5, 1, VOL_BORROW_LTV, VOL_LIQ_LTV); // WETH       -> borrow stable
-
-        IEdgeFactory.DeployParams memory params = IEdgeFactory.DeployParams({
-            vaults: vp,
-            router: IEdgeFactory.RouterParams({externalResolvedVaults: new address[](0), adapters: ap}),
-            ltv: lp,
-            unitOfAccount: USD
-        });
-
-        (router, vaults) = IEdgeFactory(EDGE_FACTORY).deploy(params);
+    function _vaults(address irm) internal pure returns (IEdgeFactory.VaultParams[] memory vp) {
+        vp = new IEdgeFactory.VaultParams[](12);
+        // borrowable (controllers)
+        vp[BORROW_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: irm, escrow: false});
+        vp[BORROW_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: irm, escrow: false});
+        vp[BORROW_STABLE] = IEdgeFactory.VaultParams({asset: STABLE, irm: irm, escrow: false});
+        vp[BORROW_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: irm, escrow: false});
+        // collateral-only (escrow)
+        vp[ESC_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: address(0), escrow: true});
+        vp[ESC_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: address(0), escrow: true});
+        vp[ESC_STABLE] = IEdgeFactory.VaultParams({asset: STABLE, irm: address(0), escrow: true});
+        vp[ESC_CBBTC] = IEdgeFactory.VaultParams({asset: CBBTC, irm: address(0), escrow: true});
+        vp[ESC_WBTC] = IEdgeFactory.VaultParams({asset: WBTC, irm: address(0), escrow: true});
+        vp[ESC_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: address(0), escrow: true});
+        vp[ESC_WSTETH] = IEdgeFactory.VaultParams({asset: WSTETH, irm: address(0), escrow: true});
+        vp[ESC_CBETH] = IEdgeFactory.VaultParams({asset: CBETH, irm: address(0), escrow: true});
     }
 
-    function _deployPool(address eulerAccount, Deployment memory d, address stable, uint256 seedUSDC, uint256 seedStable)
+    function _adapters() internal returns (IEdgeFactory.AdapterParams[] memory ap) {
+        address aWETH = address(new ChainlinkOracle(WETH, USD, FEED_ETH_USD, FEED_STALENESS));
+        ap = new IEdgeFactory.AdapterParams[](8);
+        ap[0] = IEdgeFactory.AdapterParams(USDC, address(new ChainlinkOracle(USDC, USD, FEED_USDC_USD, FEED_STALENESS)));
+        ap[1] = IEdgeFactory.AdapterParams(USDT, address(new ChainlinkOracle(USDT, USD, FEED_USDT_USD, FEED_STALENESS)));
+        ap[2] = IEdgeFactory.AdapterParams(STABLE, address(new FixedRateOracle(STABLE, USD, 1e18))); // $1 peg
+        ap[3] = IEdgeFactory.AdapterParams(CBBTC, address(new ChainlinkOracle(CBBTC, USD, FEED_BTC_USD, FEED_STALENESS)));
+        ap[4] = IEdgeFactory.AdapterParams(WBTC, address(new ChainlinkOracle(WBTC, USD, FEED_BTC_USD, FEED_STALENESS)));
+        ap[5] = IEdgeFactory.AdapterParams(WETH, aWETH);
+        // wstETH -> WETH (Lido fundamental) -> USD, exactly as Euler's PrimeCluster does it.
+        ap[6] = IEdgeFactory.AdapterParams(
+            WSTETH, address(new CrossAdapter(WSTETH, WETH, USD, address(new LidoFundamentalOracle()), aWETH))
+        );
+        // cbETH -> WETH (Chainlink cbETH/ETH) -> USD.
+        ap[7] = IEdgeFactory.AdapterParams(
+            CBETH,
+            address(
+                new CrossAdapter(
+                    CBETH, WETH, USD, address(new ChainlinkOracle(CBETH, WETH, FEED_CBETH_ETH, FEED_STALENESS)), aWETH
+                )
+            )
+        );
+    }
+
+    /// @dev Collateral -> controller LTVs. Stables loop/cross at 0.95; BTC + ETH back
+    ///      stables; ETH LSTs back WETH at a high (correlated) LTV.
+    function _ltvs() internal pure returns (IEdgeFactory.LTVParams[] memory lp) {
+        uint256[3] memory stableC = [BORROW_USDC, BORROW_USDT, BORROW_STABLE];
+        uint256[3] memory stableE = [ESC_USDC, ESC_USDT, ESC_STABLE];
+        uint256[2] memory btcE = [ESC_CBBTC, ESC_WBTC];
+        uint256[2] memory lstE = [ESC_WSTETH, ESC_CBETH];
+
+        lp = new IEdgeFactory.LTVParams[](31);
+        uint256 k;
+        for (uint256 i; i < 3; ++i) {
+            for (uint256 j; j < 3; ++j) {
+                lp[k++] = _ltv(stableE[i], stableC[j], LTV_STABLE_B, LTV_STABLE_L); // stable -> stable
+            }
+            lp[k++] = _ltv(stableE[i], BORROW_WETH, LTV_VOL_B, LTV_VOL_L); // stable -> WETH
+        }
+        for (uint256 i; i < 2; ++i) {
+            for (uint256 j; j < 3; ++j) {
+                lp[k++] = _ltv(btcE[i], stableC[j], LTV_VOL_B, LTV_VOL_L); // BTC -> stable
+            }
+            lp[k++] = _ltv(btcE[i], BORROW_WETH, LTV_BTC_ETH_B, LTV_BTC_ETH_L); // BTC -> WETH
+        }
+        for (uint256 j; j < 3; ++j) {
+            lp[k++] = _ltv(ESC_WETH, stableC[j], LTV_VOL_B, LTV_VOL_L); // WETH -> stable
+        }
+        for (uint256 i; i < 2; ++i) {
+            for (uint256 j; j < 3; ++j) {
+                lp[k++] = _ltv(lstE[i], stableC[j], LTV_LST_STABLE_B, LTV_LST_STABLE_L); // LST -> stable
+            }
+            lp[k++] = _ltv(lstE[i], BORROW_WETH, LTV_LST_ETH_B, LTV_LST_ETH_L); // LST -> WETH (high)
+        }
+        require(k == 31, "ltv count");
+    }
+
+    // ───────────────────────────── pool deploy ─────────────────────────────────
+
+    function _deployPool(address eulerAccount, Deployment memory d, uint256 seedUSDC, uint256 seedStable)
         internal
         returns (address pool)
     {
-        // EulerSwap requires asset0 < asset1 (sorted by address) — `stable` may sort
-        // either side of USDC, so order the vaults and the 1:1 price accordingly.
-        bool usdcIs0 = USDC < stable;
-        uint8 stableDec = IERC20(stable).decimals();
+        // EulerSwap requires asset0 < asset1 (by address) — STABLE may sort either side.
+        bool usdcIs0 = USDC < STABLE;
+        uint8 stableDec = IERC20(STABLE).decimals();
         (uint8 dec0, uint8 dec1) = usdcIs0 ? (uint8(6), stableDec) : (stableDec, uint8(6));
         (uint80 priceX, uint80 priceY) = _price1to1(dec0, dec1);
         uint112 eq0 = uint112(usdcIs0 ? seedUSDC : seedStable);
@@ -195,7 +270,7 @@ abstract contract BootstrapMarketBase is Script {
             borrowVault0: usdcIs0 ? d.borrowUSDC : d.borrowStable, // debt
             borrowVault1: usdcIs0 ? d.borrowStable : d.borrowUSDC,
             eulerAccount: eulerAccount,
-            feeRecipient: address(0) // fees accrue into the vaults
+            feeRecipient: address(0)
         });
 
         IEulerSwap.DynamicParams memory dp = IEulerSwap.DynamicParams({
@@ -216,28 +291,23 @@ abstract contract BootstrapMarketBase is Script {
 
         IEulerSwap.InitialState memory init = IEulerSwap.InitialState({reserve0: eq0, reserve1: eq1});
 
-        // EulerSwap pools double as Uniswap V4 hooks: the address must encode the
-        // hook-permission flags, so mine a salt (off-chain) that produces a valid one.
+        // EulerSwap pools double as Uniswap V4 hooks: the address must encode the hook
+        // flags, so mine a salt (off-chain) that produces a valid one.
         bytes memory cc = IEulerSwapFactory(EULERSWAP_FACTORY).creationCode(s);
         bytes32 salt;
         (pool, salt) = HookMiner.find(EULERSWAP_FACTORY, HookMiner.EULERSWAP_FLAGS, cc);
 
-        // The pool must be authorized as an EVC operator BEFORE deployPool (it
-        // reverts with OperatorNotInstalled otherwise).
+        // The pool must be an authorized EVC operator BEFORE deployPool.
         IEVC(EVC).setAccountOperator(eulerAccount, pool, true);
-
-        // deployPool authenticates _msgSender() == eulerAccount via the EVC.
         bytes memory res = IEVC(EVC).call(
             EULERSWAP_FACTORY, eulerAccount, 0, abi.encodeCall(IEulerSwapFactory.deployPool, (s, dp, init, salt))
         );
         require(abi.decode(res, (address)) == pool, "pool address mismatch");
     }
 
-    /// @dev priceX/priceY for a 1:1 human price between token0 (dec0) and token1 (dec1):
-    ///      priceX/priceY = 10^(dec1 - dec0). One side is fixed at 1e18 and the other
-    ///      is 1e18 / 10^|dec1 - dec0|, so values land in [1e6, 1e18] for the 6-/18-dp
-    ///      stables we target — comfortably inside uint80. Assumes |dec1 - dec0| <= 18
-    ///      (true for any real stablecoin pair); a larger gap would floor the divisor.
+    // ───────────────────────────── helpers ─────────────────────────────────────
+
+    /// @dev priceX/priceY for a 1:1 human price between token0 (dec0) and token1 (dec1).
     function _price1to1(uint8 dec0, uint8 dec1) internal pure returns (uint80 px, uint80 py) {
         if (dec1 >= dec0) {
             px = 1e18;
@@ -268,14 +338,14 @@ abstract contract BootstrapMarketBase is Script {
     }
 
     function logDeployment(Deployment memory d) public pure {
-        console.log("=== Bootstrap market deployed ===");
+        console.log("=== Mini market deployed (ungoverned) ===");
         console.log("EulerRouter:      ", d.router);
-        console.log("borrowable USDC:  ", d.borrowUSDC);
-        console.log("borrowable stable:", d.borrowStable);
-        console.log("escrow USDC:      ", d.escrowUSDC);
-        console.log("escrow stable:    ", d.escrowStable);
-        console.log("escrow cbBTC:     ", d.escrowCBBTC);
-        console.log("escrow WETH:      ", d.escrowWETH);
         console.log("EulerSwap pool:   ", d.pool);
+        console.log("borrow USDC/USDT: ", d.borrowUSDC, d.borrowUSDT);
+        console.log("borrow STABLE/WETH:", d.borrowStable, d.borrowWETH);
+        console.log("escrow USDC/STABLE:", d.escrowUSDC, d.escrowStable);
+        console.log("escrow cbBTC/WBTC: ", d.escrowCBBTC, d.escrowWBTC);
+        console.log("escrow WETH:      ", d.escrowWETH);
+        console.log("escrow wstETH/cbETH:", d.escrowWSTETH, d.escrowCBETH);
     }
 }

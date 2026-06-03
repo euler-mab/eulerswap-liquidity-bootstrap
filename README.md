@@ -4,9 +4,11 @@ A worked, deployable example of bootstrapping deep stablecoin liquidity **withou
 market maker** — by manufacturing exit liquidity out of an Euler lending market.
 
 The script in [`script/DeployBootstrapMarket.s.sol`](script/DeployBootstrapMarket.s.sol)
-deploys a complete, **ungoverned** (immutable) USDC/USDT market on Ethereum mainnet:
-borrowable vaults, collateral-only escrow vaults, a price router, an EulerSwap pool,
-and the seed LP position — in one run, validated against a mainnet fork.
+deploys, in one run on Ethereum mainnet, a complete **ungoverned** (immutable)
+**Aave/Spark-style mini lending market** — your own money market with a customisable
+collateral set — and then bootstraps liquidity for one stablecoin on top of it with
+EulerSwap. The example bootstraps **RLUSD** (paired with USDC, alongside USDT as a core
+asset); change one constant to bootstrap your own. Validated end-to-end on a mainnet fork.
 
 > ⚠️ **Experimental, unaudited reference code.** Verify every address and parameter,
 > fork-test, and get a review before risking real funds. See [Risks](#risks).
@@ -37,14 +39,16 @@ The swap inventory lives in **collateral-only escrow vaults**. Nothing can be bo
 *out* of an escrow vault, so your swap liquidity can never be drained by the money
 market — even while you open the borrowable vaults to other users.
 
-### Make it a real money market
+### It's a mini Aave/Spark market for your stablecoin
 
 ![Flywheel](assets/3-flywheel.png)
 
-The borrowable vaults accept **cbBTC and WETH** as collateral too, so outsiders can
-borrow your stables against their crypto. That organic borrow demand pays interest to
-lenders (deepening the pool you borrow from) and — when the second leg is a new stable
-— creates genuine demand for it.
+The borrowable vaults accept a **customisable collateral set** — here cbBTC, WBTC, WETH,
+wstETH and cbETH — so outsiders can borrow your stables (and WETH) against their crypto.
+wstETH/cbETH can borrow WETH at a high, correlated LTV (the classic LST-leverage play).
+That organic borrow demand pays interest to lenders (deepening the pool you borrow from)
+and builds genuine demand for the stable you're launching. It's effectively your own
+immutable Aave/Spark instance, with EulerSwap providing the bootstrapped exit liquidity.
 
 ### Capital efficiency
 
@@ -59,39 +63,40 @@ trades actually cluster.
 ## What the script deploys
 
 ```
-                         EulerRouter (Chainlink adapters, governance renounced)
-                          │
-   ┌──────────────────────┴───────────────────────────────────────────┐
-   │  BORROWABLE (controllers, ungoverned)   COLLATERAL-ONLY (escrow)  │
-   │  ┌────────────┐  ┌────────────┐          ┌──────────┐ ┌──────────┐ │
-   │  │ eUSDC      │  │ eUSDT      │          │ USDC esc │ │ USDT esc │ │  ← swap inventory
-   │  └────────────┘  └────────────┘          └──────────┘ └──────────┘ │
-   │        ▲ accepts as collateral ─────────▶┌──────────┐ ┌──────────┐ │
-   │                                          │ cbBTC esc│ │ WETH esc │ │  ← organic demand
-   │                                          └──────────┘ └──────────┘ │
-   └───────────────────────────────────────────────────────────────────┘
-                          │
-              EulerSwap pool (USDC/USDT)
-              supply = escrows (inventory) · borrow = borrowable vaults (debt)
+                 EulerRouter (Chainlink / FixedRate / Lido-cross adapters, renounced)
+                  │
+  ┌───────────────┴───────────────────────────────────────────────────────────┐
+  │  BORROWABLE (controllers, ungoverned)      COLLATERAL-ONLY (escrow)         │
+  │  ┌──────┐ ┌──────┐ ┌───────┐ ┌──────┐      ┌──────┐┌──────┐┌───────┐        │
+  │  │ USDC │ │ USDT │ │ RLUSD │ │ WETH │      │ USDC ││ USDT ││ RLUSD │  ← swap │
+  │  └──────┘ └──────┘ └───────┘ └──────┘      └──────┘└──────┘└───────┘  inv.   │
+  │      ▲ accepts as collateral ────────────▶ ┌──────┐┌──────┐┌──────┐┌──────┐ │
+  │      │  (wstETH/cbETH → WETH at high LTV)   │cbBTC ││ WBTC ││wstETH││cbETH │ │
+  │                                            └──────┘└──────┘└──────┘└──────┘ │
+  │                                                + WETH escrow      ← organic │
+  └───────────────────────────────────────────────────────────────────────────┘
+                  │
+        EulerSwap pool (USDC / RLUSD)
+        supply = escrows (inventory) · borrow = borrowable vaults (debt)
 ```
 
 In one `deployMarket(...)` call:
 
-1. **Four ChainlinkOracle adapters** (USDC, USDT, cbBTC, WETH → USD).
-2. **A reactive adaptive-curve IRM** for the borrowable stable vaults — it self-tunes
-   the rate toward target utilization, which is the right choice for an immutable
-   market that can never be retuned.
-3. **An Edge market** via the canonical `EdgeFactory`: borrowable eUSDC/eUSDT,
-   collateral-only escrow vaults for USDC/USDT/cbBTC/WETH, a fresh `EulerRouter`,
-   LTVs between them — then **all governance renounced** (vaults + router immutable).
-4. **The seed LP equity** deposited into the stable escrow vaults.
-5. **A USDC/USDT EulerSwap pool** whose inventory sits in the escrows (ring-fenced)
-   and which borrows from the borrowable vaults. The pool address is **salt-mined**
-   so it carries valid Uniswap V4 hook flags, and it's installed as an EVC operator
-   before deployment.
+1. **Price adapters → USD**: Chainlink for USDC/USDT/cbBTC/WBTC/WETH, `FixedRateOracle($1)`
+   for RLUSD, and Euler's own wstETH/cbETH **cross adapters** (Lido / Chainlink × ETH-USD).
+2. **A reactive adaptive-curve IRM**, shared across the borrowable vaults — it self-tunes
+   the rate toward target utilization, the right choice for an immutable market that can
+   never be retuned.
+3. **An Edge market** via the canonical `EdgeFactory`: borrowable USDC/USDT/RLUSD/WETH +
+   collateral-only escrow vaults (USDC/USDT/RLUSD/cbBTC/WBTC/WETH/wstETH/cbETH), a fresh
+   `EulerRouter`, the full LTV matrix — then **all governance renounced** (immutable).
+4. **The seed LP equity** deposited into the USDC + RLUSD escrow vaults (the inventory).
+5. **A USDC/RLUSD EulerSwap pool** whose inventory sits in the escrows (ring-fenced) and
+   which borrows from the borrowable vaults. The address is **salt-mined** for valid
+   Uniswap V4 hook flags, and installed as an EVC operator before deployment.
 
-All Euler infrastructure addresses, token addresses, Chainlink feeds, LTVs, IRM and
-curve parameters live in clearly-labelled constants at the top of the script.
+All addresses, feeds, the collateral set, LTV tiers, IRM and curve parameters live in
+clearly-labelled constants in [`BootstrapMarketBase.sol`](script/BootstrapMarketBase.sol).
 
 ---
 
@@ -104,37 +109,26 @@ cp .env.example .env                # set MAINNET_RPC_URL (+ PRIVATE_KEY to broa
 # 1. Validate end-to-end against a mainnet fork (deploys everything, asserts a quote):
 MAINNET_RPC_URL=https://... forge test --match-path "test/*.fork.t.sol" -vvv
 
-# 2. Broadcast for real (the deployer must already hold SEED_USDC + SEED_USDT):
+# 2. Broadcast for real (the deployer must already hold SEED_USDC + SEED_STABLE):
 forge script script/DeployBootstrapMarket.s.sol:DeployBootstrapMarket \
   --rpc-url mainnet --broadcast --slow -vvvv
 ```
 
-The fork test deploys the full market and asserts the vaults are ungoverned, the LTVs
-are wired, the inventory is in escrow, the operator is installed, and the pool quotes
-~1:1 minus the swap fee.
+The fork tests deploy the full market and assert the vaults are ungoverned, the LTV
+matrix is wired, the cross/Lido oracles price correctly, the inventory is in escrow, the
+operator is installed, the pool quotes ~1:1, and a real swap moves through the escrows.
 
 ---
 
 ## Slot in your own stablecoin
 
-Two entry points share one base (`BootstrapMarketBase`):
-
-- **`DeployBootstrapMarket`** — USDC/USDT, USDT priced by its Chainlink feed. The
-  template for an *established* stable: change the `USDT` / feed constants to yours.
-- **`DeployNewStableMarket`** — USDC/USDnew for a **brand-new** stable that has no
-  Chainlink feed yet. It prices the new stable with a `FixedRateOracle` pegged to $1;
-  pass your token via `NEW_STABLE=0x...`.
-
-The base **sorts the pair by address** (your stable may fall either side of USDC) and
-derives the decimal-adjusted 1:1 price automatically (6- or 18-dp stables). Everything
-else — escrow ring-fencing, borrow-funded inventory, cbBTC/WETH collateral, ungoverned
-deployment — is identical across both.
-
-```bash
-# Brand-new stablecoin:
-PRIVATE_KEY=0x... NEW_STABLE=0xYourToken forge script \
-  script/DeployNewStableMarket.s.sol:DeployNewStableMarket --rpc-url mainnet --broadcast --slow
-```
+To bootstrap *your* stable instead of RLUSD, change the `STABLE` constant in
+[`BootstrapMarketBase.sol`](script/BootstrapMarketBase.sol) to your token's address. It's
+priced by a `FixedRateOracle($1)` (a pegged stable needs no feed); swap in a
+`ChainlinkOracle` if it has one. The base **sorts the USDC pair by address** (your stable
+may fall either side of USDC) and derives the decimal-adjusted 1:1 price automatically
+(6- or 18-dp). The collateral set is just as editable — add or drop assets in the vault,
+adapter and LTV lists.
 
 ---
 
@@ -144,18 +138,21 @@ The defaults are sensible starting points, **not** tuned values. Review:
 
 | Parameter | Default | Notes |
 |-----------|---------|-------|
-| `SEED_USDC` / `SEED_USDT` | 1M each | Your real LP equity (the inventory). |
-| `STABLE_*_LTV` | 0.95 / 0.96 | Stable-vs-stable; drives the loop & cross. |
-| `VOL_*_LTV` | 0.80 / 0.85 | cbBTC / WETH collateral. |
-| `IRM_*` (adaptive curve) | 4% APR @ 90% target | Reactive — self-adjusts toward target utilization (no governance needed). Canonical values; review for your market. |
+| `STABLE` | RLUSD | The stablecoin you're bootstrapping. Change to yours. |
+| `SEED_USDC` / `SEED_STABLE` | 1M each | Your real LP equity (the inventory). |
+| `LTV_STABLE_*` | 0.95 / 0.96 | Stable-vs-stable; drives the loop & cross. |
+| `LTV_VOL_*` | 0.80 / 0.85 | BTC / ETH → stables, stables → WETH. |
+| `LTV_LST_ETH_*` | 0.94 / 0.95 | wstETH / cbETH → WETH (high, correlated). |
+| `LTV_LST_STABLE_*` | 0.85 / 0.87 | wstETH / cbETH → stables. |
+| `IRM_*` (adaptive curve) | 4% APR @ 90% target | Reactive — self-adjusts toward target utilization (no governance). Canonical values; review per market. |
 | `CONCENTRATION` | 0.9999e18 | Higher = tighter peg / deeper near $1. |
 | `SWAP_FEE` | 1 bps | The fee that offsets borrow cost. |
-| Chainlink feeds | mainnet | **Verify** against docs.chain.link; cbBTC uses BTC/USD. |
+| Chainlink feeds | mainnet | **Verify** against docs.chain.link; cbBTC/WBTC use BTC/USD. |
 
 **Leverage:** this template seeds equity 1:1 (eq reserves = deposits). To run the
 leveraged inventory described above you raise the equilibrium reserves and let the pool
 borrow from the borrowable vaults — which requires those vaults to have lender liquidity
-(seed it yourself, or let organic cbBTC/WETH borrow demand attract lenders first).
+(seed it yourself, or let organic collateral borrow demand attract lenders first).
 
 ---
 
@@ -174,11 +171,10 @@ borrow from the borrowable vaults — which requires those vaults to have lender
 ## Layout
 
 ```
-script/BootstrapMarketBase.sol       # shared deploy logic (vaults, pool, ordering)
-script/DeployBootstrapMarket.s.sol   # USDC/USDT (Chainlink-priced)
-script/DeployNewStableMarket.s.sol   # USDC/your new stable (FixedRateOracle $1)
-test/*.fork.t.sol                    # end-to-end mainnet-fork validation (both paths)
-test/mocks/MockERC20.sol             # stand-in token for the new-stable test
+script/BootstrapMarketBase.sol       # the mini market + pool builder (all config here)
+script/DeployBootstrapMarket.s.sol   # thin entry: seeds + run()
+test/DeployBootstrapMarket.fork.t.sol# end-to-end mainnet-fork validation
+test/Unit.t.sol                      # fork-less unit tests (price math, hook miner)
 src/Interfaces.sol                   # minimal vendored Euler interfaces
 src/HookMiner.sol                    # CREATE2 salt mining for V4 hook flags
 assets/                              # the diagrams above

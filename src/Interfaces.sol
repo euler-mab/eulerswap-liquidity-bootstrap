@@ -150,3 +150,8 @@ interface IEulerSwapPool {
     ///      the output through its vaults and verifies the curve invariant.
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
+
+/// @notice EulerRouter price dispatcher — used by tests to validate the cross oracles.
+interface IEulerRouter {
+    function getQuote(uint256 inAmount, address base, address quote) external view returns (uint256);
+}

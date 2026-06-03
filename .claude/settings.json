@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f .git/index.lock)",
+      "Bash(git add *)",
+      "Bash(forge build*)",
+      "Bash(forge test*)",
+      "Bash(forge fmt*)"
+    ]
+  }
+}
