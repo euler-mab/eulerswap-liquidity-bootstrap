@@ -1,12 +1,20 @@
 # Market visualizer
 
-A single self-contained HTML page that reads a **deployed** bootstrap market over RPC and
-renders two things the generic Euler lending UIs don't: the **ring-fenced architecture**
-(which vaults are borrowable vs collateral-only escrow, and where the swap inventory sits)
-and the **EulerSwap liquidity depth** around the $1 peg.
+A single self-contained HTML page that renders the bootstrap market the way a lending-market
+explorer would, plus the one thing those don't show — the EulerSwap liquidity depth:
+
+- **Graph** — the assets as nodes, with every collateral → borrowable LTV relationship as an
+  edge (click an asset to isolate its edges). Borrowable assets are filled, collateral-only
+  escrows are outlined, and the two EulerSwap inventory legs (USDC + the stable) are ringed.
+- **Matrix** — the full collateral × borrowable LTV grid (borrow / liquidation), i.e. the 31
+  pairs wired by `_ltvs()`.
+- **Liquidity depth** — dollars available vs execution price, centred on the $1 peg (live).
+
+The **Graph and Matrix render offline** from the market structure. Connect an RPC + the
+deployed pool to add the **live pool state** and the **depth curve**.
 
 No build, no server, no `node_modules` — [`index.html`](index.html) pulls `viem` from a CDN
-and runs entirely in the browser. Read-only: it never sends a transaction.
+and runs entirely in the browser. Light theme, read-only: it never sends a transaction.
 
 ## Run
 
@@ -44,7 +52,8 @@ note that the 1 bp swap fee means nothing executes closer than ~1 bp to the peg.
 ## Customising
 
 If you change the market in `BootstrapMarketBase.sol` (different stable, collateral set, LTVs),
-edit the `ARCH` config object near the top of the `<script>` in `index.html` so the architecture
-panel matches. The live state + depth chart read everything from the pool, so they need no edits.
+edit the `NODES` list and `buildEdges()` near the top of the `<script>` in `index.html` so the
+Graph and Matrix match. The live state + depth chart read everything from the pool, so they
+need no edits.
 
 > Read-only reference tooling. It reads on-chain state; it never signs or sends anything.

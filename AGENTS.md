@@ -98,7 +98,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 - **Add/remove a collateral asset**: touch every layer — add the token constant, add a `BORROW_*`/`ESC_*` index, extend `_vaults()`, `_adapters()`, `_ltvs()` (and fix the `k == 31` count), the `Deployment` struct, and `logDeployment()`. The fork test's LTV/oracle assertions are the safety net.
 - **Calibrate before mainnet**: review the parameter table in [README.md](README.md#calibrate-before-mainnet) — seeds, the `LTV_*` tiers, the adaptive-curve `IRM_*` values, `CONCENTRATION`, `SWAP_FEE`, and **verify every Chainlink feed** against docs.chain.link.
 - **Add fork-less test coverage**: extend `test/Unit.t.sol`; expose any new `internal` helper via a harness like `PriceHarness`.
-- **Visualize a deployed market**: open `viz/index.html`, paste an RPC + the pool address the deploy logged. If you changed the collateral set, update the `ARCH` config object in that file so the architecture panel matches (the live state + depth chart read from the pool and need no edits).
+- **Visualize a deployed market**: open `viz/index.html` for the Graph/Matrix of the market (renders offline); paste an RPC + the pool address the deploy logged for live reserves + the depth curve. If you changed the collateral set, update the `NODES` list and `buildEdges()` in that file so the Graph/Matrix match (the live state + depth chart read from the pool and need no edits).
 
 ## Pitfalls
 

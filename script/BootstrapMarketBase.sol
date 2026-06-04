@@ -35,6 +35,33 @@ import {HookMiner} from "../src/HookMiner.sol";
 ///
 /// To bootstrap YOUR stablecoin, change `STABLE` to your token. It's priced by a
 /// FixedRateOracle($1); swap in a Chainlink adapter if it has a feed.
+///
+/// ─────────────────────────── SECURITY CONSIDERATIONS ───────────────────────────
+/// This market is IMMUTABLE once deployed (all governance renounced), so every
+/// parameter and oracle below is permanent and cannot be patched. Immutability is the
+/// selling point, but it magnifies every choice — there is no on-chain remediation.
+/// A deployer MUST consciously accept the following (see docs/WALKTHROUGH.md for the
+/// full discussion):
+///
+///   1. Hard-coded $1 oracle on the bootstrapped stable. RLUSD is priced at a fixed $1
+///      and accepted as 0.95 collateral. The market's solvency ASSUMES RLUSD never
+///      trades materially below $1; a downward depeg lets it be over-borrowed against,
+///      creating bad debt with no recourse. For a peg you don't fully trust, use a
+///      market feed and/or a lower LTV for that asset.
+///   2. Passive pool. The EulerSwap pool has no oracle hook, so it quotes ~1:1 through a
+///      depeg and bleeds the pegged-up side to arbitrageurs (LVR). Attach a dynamic-fee
+///      / rebalancing hook before deploying meaningful size.
+///   3. No supply/borrow caps. EdgeFactory does not set caps, so exposure is unbounded
+///      and cannot be capped later. Deploy vaults manually first if you need caps.
+///   4. Wrapped/LST pricing. cbBTC/WBTC are priced 1:1 with BTC, and wstETH/cbETH via
+///      on-chain LST exchange rates — both ignore secondary-market/bridge depegs. LTVs
+///      are haircut accordingly, but the assumption is permanent.
+///   5. Ungoverned market, governed position. The vaults are immutable, but the
+///      eulerAccount (the deployer) still OWNS the pool and can reconfigure it (fees,
+///      reserves, even install an arbitrary swapHook). Use a dedicated sub-account or
+///      multisig, and treat that key as the trust root of the position.
+///   6. Oracle staleness. Windows are per-feed (heartbeat + buffer); a Chainlink
+///      aggregator deprecation would permanently brick the corresponding adapter.
 abstract contract BootstrapMarketBase is Script {
     // ─────────────────────────── Euler mainnet infra ───────────────────────────
     address constant EVC = 0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383;
@@ -62,7 +89,15 @@ abstract contract BootstrapMarketBase is Script {
     address constant FEED_ETH_USD = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address constant FEED_BTC_USD = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
     address constant FEED_CBETH_ETH = 0xF017fcB346A1885194689bA23Eff2fE6fA5C483b;
-    uint256 constant FEED_STALENESS = 24 hours;
+
+    // Per-feed staleness = the feed's heartbeat + a margin. Set PER FEED, not uniform:
+    // ETH/USD and BTC/USD update ~hourly, so a day-long window would accept stale prices.
+    // NOTE: in an IMMUTABLE market, a window set BELOW the real heartbeat bricks the feed
+    // permanently, so these are heartbeat + buffer (deliberately not ultra-tight). Verify
+    // each feed's heartbeat and tighten to your risk appetite before deploying.
+    uint256 constant STALE_CRYPTO = 3 hours; // ETH/USD, BTC/USD (~1h heartbeat)
+    uint256 constant STALE_USD = 25 hours; // USDC/USD, USDT/USD (~24h heartbeat)
+    uint256 constant STALE_LST_RATE = 25 hours; // cbETH/ETH exchange-rate feed (~24h heartbeat)
 
     // ───────────────────────────── LTV tiers (1e4) ─────────────────────────────
     uint16 constant LTV_STABLE_B = 0.95e4; // stable <-> stable (the loop / cross)
@@ -162,6 +197,10 @@ abstract contract BootstrapMarketBase is Script {
         d.escrowWSTETH = v[ESC_WSTETH];
         d.escrowCBETH = v[ESC_CBETH];
 
+        // Defend against any change in EdgeFactory's return ordering: assert each vault
+        // holds the asset we expect before we seed it or wire it into the pool.
+        _verifyVaults(d);
+
         // Seed the LP equity into the two stable escrow vaults (the swap inventory).
         _safeApprove(USDC, d.escrowUSDC, seedUSDC);
         IEVault(d.escrowUSDC).deposit(seedUSDC, eulerAccount);
@@ -209,24 +248,28 @@ abstract contract BootstrapMarketBase is Script {
     }
 
     function _adapters() internal returns (IEdgeFactory.AdapterParams[] memory ap) {
-        address aWETH = address(new ChainlinkOracle(WETH, USD, FEED_ETH_USD, FEED_STALENESS));
+        address aWETH = address(new ChainlinkOracle(WETH, USD, FEED_ETH_USD, STALE_CRYPTO));
         ap = new IEdgeFactory.AdapterParams[](8);
-        ap[0] = IEdgeFactory.AdapterParams(USDC, address(new ChainlinkOracle(USDC, USD, FEED_USDC_USD, FEED_STALENESS)));
-        ap[1] = IEdgeFactory.AdapterParams(USDT, address(new ChainlinkOracle(USDT, USD, FEED_USDT_USD, FEED_STALENESS)));
-        ap[2] = IEdgeFactory.AdapterParams(STABLE, address(new FixedRateOracle(STABLE, USD, 1e18))); // $1 peg
-        ap[3] = IEdgeFactory.AdapterParams(CBBTC, address(new ChainlinkOracle(CBBTC, USD, FEED_BTC_USD, FEED_STALENESS)));
-        ap[4] = IEdgeFactory.AdapterParams(WBTC, address(new ChainlinkOracle(WBTC, USD, FEED_BTC_USD, FEED_STALENESS)));
+        ap[0] = IEdgeFactory.AdapterParams(USDC, address(new ChainlinkOracle(USDC, USD, FEED_USDC_USD, STALE_USD)));
+        ap[1] = IEdgeFactory.AdapterParams(USDT, address(new ChainlinkOracle(USDT, USD, FEED_USDT_USD, STALE_USD)));
+        // SECURITY: RLUSD is priced at a hard-coded $1, immutable. Market solvency assumes
+        // RLUSD never trades materially below $1 — see the SECURITY CONSIDERATIONS header.
+        ap[2] = IEdgeFactory.AdapterParams(STABLE, address(new FixedRateOracle(STABLE, USD, 1e18)));
+        // SECURITY: cbBTC/WBTC are priced 1:1 with BTC — assumes the wrapper holds its peg.
+        ap[3] = IEdgeFactory.AdapterParams(CBBTC, address(new ChainlinkOracle(CBBTC, USD, FEED_BTC_USD, STALE_CRYPTO)));
+        ap[4] = IEdgeFactory.AdapterParams(WBTC, address(new ChainlinkOracle(WBTC, USD, FEED_BTC_USD, STALE_CRYPTO)));
         ap[5] = IEdgeFactory.AdapterParams(WETH, aWETH);
         // wstETH -> WETH (Lido fundamental) -> USD, exactly as Euler's PrimeCluster does it.
+        // SECURITY: the Lido fundamental rate ignores any secondary-market stETH depeg.
         ap[6] = IEdgeFactory.AdapterParams(
             WSTETH, address(new CrossAdapter(WSTETH, WETH, USD, address(new LidoFundamentalOracle()), aWETH))
         );
-        // cbETH -> WETH (Chainlink cbETH/ETH) -> USD.
+        // cbETH -> WETH (Chainlink cbETH/ETH) -> USD. Same LST caveat as wstETH.
         ap[7] = IEdgeFactory.AdapterParams(
             CBETH,
             address(
                 new CrossAdapter(
-                    CBETH, WETH, USD, address(new ChainlinkOracle(CBETH, WETH, FEED_CBETH_ETH, FEED_STALENESS)), aWETH
+                    CBETH, WETH, USD, address(new ChainlinkOracle(CBETH, WETH, FEED_CBETH_ETH, STALE_LST_RATE)), aWETH
                 )
             )
         );
@@ -289,6 +332,10 @@ abstract contract BootstrapMarketBase is Script {
             feeRecipient: address(0)
         });
 
+        // SECURITY: passive pool — no swapHook/oracle (swapHookedOperations = 0) and
+        // minReserve 0. It quotes ~1:1 even through a depeg, so arbitrageurs can drain the
+        // pegged-up side and leave the LP holding the other. Attach a dynamic-fee /
+        // rebalancing hook before deploying real size (see SECURITY CONSIDERATIONS header).
         IEulerSwap.DynamicParams memory dp = IEulerSwap.DynamicParams({
             equilibriumReserve0: eq0,
             equilibriumReserve1: eq1,
@@ -322,6 +369,23 @@ abstract contract BootstrapMarketBase is Script {
     }
 
     // ───────────────────────────── helpers ─────────────────────────────────────
+
+    /// @dev Assert each vault holds the asset its index claims. Cheap insurance against
+    ///      a future EdgeFactory change reordering the returned array.
+    function _verifyVaults(Deployment memory d) internal view {
+        require(IEVault(d.borrowUSDC).asset() == USDC, "wire: borrowUSDC");
+        require(IEVault(d.borrowUSDT).asset() == USDT, "wire: borrowUSDT");
+        require(IEVault(d.borrowStable).asset() == STABLE, "wire: borrowStable");
+        require(IEVault(d.borrowWETH).asset() == WETH, "wire: borrowWETH");
+        require(IEVault(d.escrowUSDC).asset() == USDC, "wire: escrowUSDC");
+        require(IEVault(d.escrowUSDT).asset() == USDT, "wire: escrowUSDT");
+        require(IEVault(d.escrowStable).asset() == STABLE, "wire: escrowStable");
+        require(IEVault(d.escrowCBBTC).asset() == CBBTC, "wire: escrowCBBTC");
+        require(IEVault(d.escrowWBTC).asset() == WBTC, "wire: escrowWBTC");
+        require(IEVault(d.escrowWETH).asset() == WETH, "wire: escrowWETH");
+        require(IEVault(d.escrowWSTETH).asset() == WSTETH, "wire: escrowWSTETH");
+        require(IEVault(d.escrowCBETH).asset() == CBETH, "wire: escrowCBETH");
+    }
 
     /// @dev priceX/priceY for a 1:1 human price between token0 (dec0) and token1 (dec1).
     function _price1to1(uint8 dec0, uint8 dec1) internal pure returns (uint80 px, uint80 py) {

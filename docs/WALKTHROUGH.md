@@ -297,14 +297,51 @@ tests for the price math and hook miner.
 
 ---
 
-# Risks
+# Security considerations
 
-- This is a **leveraged stablecoin position** when run levered. A depeg drops your
-  collateral while debt stays fixed — size LTVs conservatively.
-- Borrow cost rises with utilisation; organic borrowers compete for the same liquidity.
-- The IRM and Chainlink feed constants are **examples / defaults** — verify and review.
-- Ungoverned vaults are **immutable**: nothing can be changed after deployment.
-- Unaudited reference code. Fork-test and get a review first.
+This is unaudited reference code, and — more importantly — the market is **immutable**
+once deployed: all governance is renounced, so no parameter or oracle can be patched
+afterwards. Immutability is the selling point, but it magnifies every choice, because
+there is no on-chain remediation. A self-review (in the style of an audit) surfaced the
+points below; deploy nothing of value without consciously accepting or fixing each. They
+are also recorded in the `SECURITY CONSIDERATIONS` header of `BootstrapMarketBase.sol`.
+
+**Oracles**
+
+- **Hard-coded $1 on the bootstrapped stable.** RLUSD is priced at a fixed $1 (a
+  `FixedRateOracle`) and accepted as 0.95 collateral. Solvency therefore *assumes* RLUSD
+  never trades materially below $1 — a downward depeg lets it be over-borrowed against,
+  creating bad debt with no recourse. For a peg you don't fully trust, use a market feed
+  and/or a lower LTV for that asset.
+- **Wrapped/LST pricing.** cbBTC/WBTC are priced 1:1 with BTC; wstETH/cbETH via on-chain
+  LST exchange rates (the way Euler's PrimeCluster does it). Both ignore secondary-market
+  or bridge depegs. LTVs are haircut for this, but the assumption is permanent.
+- **Staleness.** Windows are set per feed (heartbeat + buffer), not a uniform day — a
+  window below a feed's real heartbeat would brick it permanently, so they err slightly
+  loose. A Chainlink aggregator deprecation would likewise permanently brick that adapter.
+
+**The pool**
+
+- **Passive by design.** The EulerSwap pool has no oracle hook, so it quotes ~1:1 even
+  through a depeg and bleeds the pegged-up side to arbitrageurs (loss-versus-rebalancing).
+  Attach a dynamic-fee / rebalancing hook before deploying meaningful size.
+- **Ungoverned market, governed position.** The vaults are immutable, but the
+  `eulerAccount` (the deployer) still owns the pool and can reconfigure it — fees,
+  reserves, even an arbitrary `swapHook`. Treat that key as the trust root; use a
+  dedicated sub-account or multisig.
+
+**The market**
+
+- **No caps.** EdgeFactory does not set supply/borrow caps, so exposure is unbounded and
+  can't be capped later. Deploy vaults manually first if you need caps.
+- **Leverage.** Run levered, this is a leveraged stablecoin position: a depeg drops your
+  collateral while debt stays fixed. Size LTVs conservatively and watch utilisation.
+- **Thin liquidation buffers** on the aggressive tiers (stable cross 0.95/0.96, LST→WETH
+  0.94/0.95) can make liquidations unprofitable in a fast move.
+
+The deploy script asserts each vault holds its expected asset before wiring the pool, and
+prints the live LTV matrix — but the economic assumptions above are yours to own. Fork-
+test, add adversarial tests (depeg → bad debt, stale-feed revert), and get a real review.
 
 ---
 

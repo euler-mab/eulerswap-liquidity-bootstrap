@@ -165,13 +165,21 @@ borrow from the borrowable vaults — which requires those vaults to have lender
 
 ## Risks
 
-- This is a **leveraged stablecoin position**. A depeg drops your collateral while debt
-  stays fixed — size LTVs conservatively.
-- USDC borrow cost rises with utilisation; organic borrowers compete for the same USDC.
-- The adaptive-curve IRM uses canonical values and the Chainlink feed constants are
-  defaults — verify and review for your market.
-- Ungoverned vaults are **immutable**: parameters cannot be changed after deployment.
-- Unaudited reference code. Fork-test and get a review first.
+Unaudited reference code, and the deployed market is **immutable** — no parameter or
+oracle can change after deployment, so every choice below is permanent.
+
+- **Hard-coded $1 oracle** on the bootstrapped stable (RLUSD), used as 0.95 collateral:
+  solvency assumes it never trades materially below $1. Use a market feed / lower LTV for
+  a peg you don't fully trust.
+- **Passive pool** (no oracle hook) quotes ~1:1 through a depeg — attach a dynamic-fee
+  hook before real size.
+- **No supply/borrow caps** (an EdgeFactory limitation); cbBTC/WBTC are priced as BTC and
+  wstETH/cbETH via LST exchange rates, ignoring bridge/secondary-market depegs.
+- It's a **leveraged stablecoin position**; a depeg drops collateral while debt stays fixed.
+- The vaults are immutable, but the **eulerAccount/deployer still controls the pool**.
+
+See [**docs/WALKTHROUGH.md → Security considerations**](docs/WALKTHROUGH.md#security-considerations)
+for the full discussion. Fork-test and get a review before risking real funds.
 
 ---
 

@@ -13,6 +13,7 @@ contract DeployBootstrapMarketForkTest is Test {
 
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address constant RLUSD = 0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant WSTETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
     address constant CBETH = 0xBe9895146f7AF43049ca1c1AE358B0541Ea49704;
     address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
@@ -89,6 +90,20 @@ contract DeployBootstrapMarketForkTest is Test {
         console.log("quote: 100,000 USDC -> RLUSD (1e18) =", out);
         assertGt(out, 99_900e18, "quote low");
         assertLe(out, 100_000e18, "quote exceeds input");
+    }
+
+    /// @notice Adversarial: the per-feed staleness window must actually bite. A crypto
+    ///         feed (ETH/USD, 3h) goes stale well before a day, and the quote must revert.
+    function test_oracle_reverts_when_crypto_feed_is_stale() public {
+        DeployBootstrapMarket.Deployment memory d = _deploy(address(script));
+
+        // Fresh: the ETH/USD-backed WETH quote prices fine.
+        assertGt(IEulerRouter(d.router).getQuote(1e18, WETH, USD), 0, "fresh WETH price");
+
+        // Past the 3h crypto-feed window: the same quote must revert (a 24h window wouldn't).
+        vm.warp(block.timestamp + 4 hours);
+        vm.expectRevert();
+        IEulerRouter(d.router).getQuote(1e18, WETH, USD);
     }
 
     function test_executes_a_swap_through_escrow_inventory() public {
