@@ -155,6 +155,7 @@ The defaults are sensible starting points, **not** tuned values. Review:
 | `SEED_USDC` / `SEED_STABLE` | 1M each | Your real LP equity (the inventory). |
 | `LTV_STABLE_*` | 0.95 / 0.96 | Stable-vs-stable; drives the loop & cross. |
 | `LTV_VOL_*` | 0.80 / 0.85 | BTC / ETH → stables, stables → WETH. |
+| `LTV_BTC_ETH_*` | 0.78 / 0.83 | BTC → WETH (cross-volatile). |
 | `LTV_LST_ETH_*` | 0.94 / 0.95 | wstETH / cbETH → WETH (high, correlated). |
 | `LTV_LST_STABLE_*` | 0.85 / 0.87 | wstETH / cbETH → stables. |
 | `IRM_*` (adaptive curve) | 4% APR @ 90% target | Reactive — self-adjusts toward target utilization (no governance). Canonical values; review per market. |

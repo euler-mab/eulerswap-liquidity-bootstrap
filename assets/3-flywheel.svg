@@ -24,7 +24,7 @@
 
     <rect x="480" y="220" width="330" height="150" rx="16" fill="#11151B" stroke="#243040" stroke-width="2"/>
     <text x="645" y="285" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">Outsiders borrow</text>
-    <text x="645" y="318" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">USDC &amp; USDnew</text>
+    <text x="645" y="318" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">USDC &amp; RLUSD</text>
 
     <rect x="870" y="220" width="330" height="150" rx="16" fill="#11151B" stroke="#243040" stroke-width="2"/>
     <text x="1035" y="285" fill="#D7DEE6" font-size="25" text-anchor="middle" font-weight="600">They pay interest &#8212;</text>
@@ -52,8 +52,8 @@
   <text x="120" y="736" fill="#C7CDD4" font-size="25">own capital.</text>
 
   <rect x="820" y="560" width="690" height="250" rx="18" fill="#15131F" stroke="#A78BFA" stroke-width="2"/>
-  <text x="850" y="618" fill="#A78BFA" font-size="27" font-weight="700">Real USDnew demand</text>
-  <text x="850" y="668" fill="#C7CDD4" font-size="25">People borrowing and using USDnew is exactly</text>
+  <text x="850" y="618" fill="#A78BFA" font-size="27" font-weight="700">Real RLUSD demand</text>
+  <text x="850" y="668" fill="#C7CDD4" font-size="25">People borrowing and using RLUSD is exactly</text>
   <text x="850" y="702" fill="#C7CDD4" font-size="25">the organic demand a new stablecoin is</text>
   <text x="850" y="736" fill="#C7CDD4" font-size="25">launched to create.</text>
 </svg>

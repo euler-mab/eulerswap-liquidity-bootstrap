@@ -8,7 +8,7 @@
   <rect width="1600" height="900" fill="url(#bg)"/>
 
   <text x="100" y="120" fill="#FFFFFF" font-size="56" font-weight="700">The cost of deep stablecoin liquidity</text>
-  <text x="100" y="172" fill="#8A93A0" font-size="28">Annual cost to keep ~$10M of USDnew &#8644; USDC liquidity live</text>
+  <text x="100" y="172" fill="#8A93A0" font-size="28">Annual cost to keep ~$10M of RLUSD &#8644; USDC liquidity live</text>
 
   <!-- gridlines: scale 54.5 px per %, x0 = 100 -->
   <g stroke="#1E242C" stroke-width="2">
