@@ -1,5 +1,7 @@
 # Bootstrapping stablecoin liquidity with EulerSwap
 
+[![ci](https://github.com/euler-mab/eulerswap-liquidity-bootstrap/actions/workflows/ci.yml/badge.svg)](https://github.com/euler-mab/eulerswap-liquidity-bootstrap/actions/workflows/ci.yml)
+
 A worked, deployable example of bootstrapping deep stablecoin liquidity **without a
 market maker** — by manufacturing exit liquidity out of an Euler lending market.
 
@@ -121,20 +123,38 @@ clearly-labelled constants in [`BootstrapMarketBase.sol`](script/BootstrapMarket
 ## Run it
 
 ```bash
-forge install                       # forge-std + euler-price-oracle
-cp .env.example .env                # set MAINNET_RPC_URL (+ PRIVATE_KEY to broadcast)
+git clone https://github.com/euler-mab/eulerswap-liquidity-bootstrap.git
+cd eulerswap-liquidity-bootstrap
+make setup       # forge install + forge build
+make test        # unit tests, no RPC required
+make doctor      # verify toolchain + env
+```
 
-# 1. Validate end-to-end against a mainnet fork (deploys everything, asserts a quote):
-MAINNET_RPC_URL=https://... forge test --match-path "test/*.fork.t.sol" -vvv
+For a forked-mainnet dry-run that exercises the full deploy:
 
-# 2. Broadcast for real (the deployer must already hold SEED_USDC + SEED_STABLE):
+```bash
+cp .env.example .env
+# fill in MAINNET_RPC_URL in .env, then:
+source .env && make demo
+```
+
+The demo runs the fork tests against a local anvil node. They deploy the full market
+and assert the vaults are ungoverned, the LTV matrix is wired, the cross/Lido oracles
+price correctly, the inventory is in escrow, the operator is installed, the pool quotes
+~1:1, and a real swap moves through the escrows.
+
+Mainnet broadcast (deployer must already hold `SEED_USDC` of USDC + `SEED_STABLE` of
+the stable):
+
+```bash
 forge script script/DeployBootstrapMarket.s.sol:DeployBootstrapMarket \
   --rpc-url mainnet --broadcast --slow -vvvv
 ```
 
-The fork tests deploy the full market and assert the vaults are ungoverned, the LTV
-matrix is wired, the cross/Lido oracles price correctly, the inventory is in escrow, the
-operator is installed, the pool quotes ~1:1, and a real swap moves through the escrows.
+This stays as an explicit `forge script` invocation — never wrapped in a `make` target
+— so you never accidentally broadcast.
+
+Available AI-agent prompts: [PROMPTS.md](PROMPTS.md).
 
 ---
 
@@ -219,3 +239,45 @@ Built on [EulerSwap](https://github.com/euler-xyz/euler-swap),
 [Euler Vault Kit](https://github.com/euler-xyz/euler-vault-kit), the
 [EVC](https://github.com/euler-xyz/ethereum-vault-connector), and
 [evk-periphery](https://github.com/euler-xyz/evk-periphery)'s `EdgeFactory`.
+
+---
+
+## Ecosystem resources
+
+The wider Euler stack this repo sits on. **Audited substrates** the reference implementation depends on:
+
+| Repo | What it is |
+|---|---|
+| [euler-vault-kit (EVK)](https://github.com/euler-xyz/euler-vault-kit) | The vault framework that backs Euler lending |
+| [ethereum-vault-connector (EVC)](https://github.com/euler-xyz/ethereum-vault-connector) | Account-abstraction layer for cross-vault collateral and operators |
+| [euler-price-oracle](https://github.com/euler-xyz/euler-price-oracle) | Composable price-oracle adapters for collateral pricing |
+| [euler-swap](https://github.com/euler-xyz/euler-swap) | Single-LP AMM with vault-backed liquidity and a hook interface |
+| [evk-periphery](https://github.com/euler-xyz/evk-periphery) | Factories, swappers, and utilities wrapping EVK |
+| [euler-interfaces](https://github.com/euler-xyz/euler-interfaces) | Canonical addresses + interface definitions per chain |
+| [euler-audits](https://github.com/euler-xyz/euler-audits) | Audit reports for the substrates above |
+
+**Tooling and libraries:**
+
+| Repo | What it is |
+|---|---|
+| [euler-sdk](https://github.com/euler-xyz/euler-sdk) | TypeScript SDK — vaults, swap, exec, markets, liquidation |
+| [euler-swap-jslib](https://github.com/euler-xyz/euler-swap-jslib) | Lightweight JS library with EulerSwap curve math (viem-based) |
+| [euler-orderflow-router](https://github.com/euler-xyz/euler-orderflow-router) | Orderflow routing API for EulerSwap pools |
+
+**UIs to fork:**
+
+| Repo | What it is |
+|---|---|
+| [euler-lite](https://github.com/euler-xyz/euler-lite) | Vue-based minimal UI for interacting with Euler |
+| [euler-maglev](https://github.com/euler-xyz/euler-maglev) | Minimal experimental interface for EulerSwap instances |
+
+**Docs:**
+
+- [docs.euler.finance](https://docs.euler.finance) — official user-facing docs
+- [euler-docs](https://github.com/euler-xyz/euler-docs) — source for the official docs
+
+---
+
+## License
+
+MIT.
