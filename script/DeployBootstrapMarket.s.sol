@@ -30,10 +30,7 @@ contract DeployBootstrapMarket is BootstrapMarketBase {
     }
 
     /// @notice Thin wrapper so tests can drive the deploy without broadcasting.
-    function deploy(address eulerAccount, uint256 seedUSDC, uint256 seedStable)
-        public
-        returns (Deployment memory)
-    {
+    function deploy(address eulerAccount, uint256 seedUSDC, uint256 seedStable) public returns (Deployment memory) {
         return deployMarket(eulerAccount, seedUSDC, seedStable);
     }
 }

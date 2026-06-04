@@ -34,9 +34,8 @@ library HookMiner {
         flags = flags & FLAG_MASK;
         bytes32 initCodeHash = keccak256(creationCode);
         for (uint256 s; s < MAX_LOOP; s++) {
-            hookAddress = address(
-                uint160(uint256(keccak256(abi.encodePacked(bytes1(0xFF), deployer, s, initCodeHash))))
-            );
+            hookAddress =
+                address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xFF), deployer, s, initCodeHash)))));
             if (uint160(hookAddress) & FLAG_MASK == flags && hookAddress.code.length == 0) {
                 return (hookAddress, bytes32(s));
             }

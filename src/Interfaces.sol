@@ -126,10 +126,7 @@ interface IEulerSwap {
 }
 
 interface IEulerSwapFactory {
-    function computePoolAddress(IEulerSwap.StaticParams memory sParams, bytes32 salt)
-        external
-        view
-        returns (address);
+    function computePoolAddress(IEulerSwap.StaticParams memory sParams, bytes32 salt) external view returns (address);
     function creationCode(IEulerSwap.StaticParams memory sParams) external view returns (bytes memory);
     function deployPool(
         IEulerSwap.StaticParams memory sParams,

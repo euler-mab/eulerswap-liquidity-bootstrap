@@ -107,9 +107,9 @@ abstract contract BootstrapMarketBase is Script {
     // _tierLTV() maps each (collateral tier -> borrow tier) to one of these pairs.
     uint16 constant LTV_STABLE_B = 0.95e4; // stable <-> stable (the loop / cross)
     uint16 constant LTV_STABLE_L = 0.96e4;
-    uint16 constant LTV_VOL_B = 0.80e4; // any cross between unlike tiers (vol<->stable, vol<->vol)
+    uint16 constant LTV_VOL_B = 0.8e4; // any cross between unlike tiers (vol<->stable, vol<->vol)
     uint16 constant LTV_VOL_L = 0.85e4;
-    uint16 constant LTV_SELF_B = 0.90e4; // same vol tier: WETH->WETH, BTC->BTC (correlated)
+    uint16 constant LTV_SELF_B = 0.9e4; // same vol tier: WETH->WETH, BTC->BTC (correlated)
     uint16 constant LTV_SELF_L = 0.92e4;
     uint16 constant LTV_LST_STABLE_B = 0.85e4; // wstETH/cbETH -> stables
     uint16 constant LTV_LST_STABLE_L = 0.87e4;
@@ -123,7 +123,7 @@ abstract contract BootstrapMarketBase is Script {
     // curve can be tuned per asset (stables vs ETH here). Rates are WAD-per-second;
     // `Xe18 / YEAR` reads as "X APR". Bounds are shared; initial rate-at-target varies.
     int256 constant YEAR = int256(365.2425 days);
-    int256 constant IRM_TARGET_UTILIZATION = 0.90e18;
+    int256 constant IRM_TARGET_UTILIZATION = 0.9e18;
     int256 constant IRM_INIT_RATE_STABLE = 0.04e18 / YEAR; // 4% APR at target (stables)
     int256 constant IRM_INIT_RATE_ETH = 0.025e18 / YEAR; // 2.5% APR at target (WETH)
     int256 constant IRM_INIT_RATE_BTC = 0.01e18 / YEAR; // 1% APR at target (cbBTC, WBTC)
@@ -304,16 +304,38 @@ abstract contract BootstrapMarketBase is Script {
     ///      same asset share a number. 14 collateral vaults x 6 controllers - 6 self = 78.
     function _ltvs() internal pure returns (IEdgeFactory.LTVParams[] memory lp) {
         uint256[14] memory cVault = [
-            ESC_USDC, BORROW_USDC, ESC_USDT, BORROW_USDT, ESC_STABLE, BORROW_STABLE, // stables (escrow + borrowable)
-            ESC_WETH, BORROW_WETH, // WETH (escrow + borrowable)
-            ESC_CBBTC, BORROW_CBBTC, ESC_WBTC, BORROW_WBTC, // BTC (escrow + borrowable)
-            ESC_WSTETH, ESC_CBETH // LSTs (escrow-only)
+            ESC_USDC,
+            BORROW_USDC,
+            ESC_USDT,
+            BORROW_USDT,
+            ESC_STABLE,
+            BORROW_STABLE, // stables (escrow + borrowable)
+            ESC_WETH,
+            BORROW_WETH, // WETH (escrow + borrowable)
+            ESC_CBBTC,
+            BORROW_CBBTC,
+            ESC_WBTC,
+            BORROW_WBTC, // BTC (escrow + borrowable)
+            ESC_WSTETH,
+            ESC_CBETH // LSTs (escrow-only)
         ];
         uint8[14] memory cTier = [
-            TIER_S, TIER_S, TIER_S, TIER_S, TIER_S, TIER_S, TIER_W, TIER_W, TIER_B, TIER_B, TIER_B, TIER_B, TIER_L, TIER_L
+            TIER_S,
+            TIER_S,
+            TIER_S,
+            TIER_S,
+            TIER_S,
+            TIER_S,
+            TIER_W,
+            TIER_W,
+            TIER_B,
+            TIER_B,
+            TIER_B,
+            TIER_B,
+            TIER_L,
+            TIER_L
         ];
-        uint256[6] memory ctrl =
-            [BORROW_USDC, BORROW_USDT, BORROW_STABLE, BORROW_WETH, BORROW_CBBTC, BORROW_WBTC];
+        uint256[6] memory ctrl = [BORROW_USDC, BORROW_USDT, BORROW_STABLE, BORROW_WETH, BORROW_CBBTC, BORROW_WBTC];
         uint8[6] memory ctrlTier = [TIER_S, TIER_S, TIER_S, TIER_W, TIER_B, TIER_B];
 
         lp = new IEdgeFactory.LTVParams[](78);
@@ -472,8 +494,7 @@ abstract contract BootstrapMarketBase is Script {
     ///         the source of truth, so the docs can never silently drift. Each cell is
     ///         "borrowLTV/liqLTV" as integer percent; "-" means not accepted as collateral.
     function logLTVMatrix(Deployment memory d) public view {
-        address[6] memory ctrl =
-            [d.borrowUSDC, d.borrowUSDT, d.borrowStable, d.borrowWETH, d.borrowCBBTC, d.borrowWBTC];
+        address[6] memory ctrl = [d.borrowUSDC, d.borrowUSDT, d.borrowStable, d.borrowWETH, d.borrowCBBTC, d.borrowWBTC];
         console.log("=== On-chain LTV matrix (borrow/liq, percent) | deposit row x borrow column ===");
         console.log(
             string.concat(

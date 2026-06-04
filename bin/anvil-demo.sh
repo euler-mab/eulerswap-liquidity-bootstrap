@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Anvil-fork demo for the bootstrap-market deploy.
-# Spins up a forked-mainnet anvil node and runs the full DeployBootstrapMarket
-# script against it using the well-known anvil test key. Never broadcasts to mainnet.
+# Spins up a forked-mainnet anvil node and runs the repo's fork tests against it —
+# they deploy the full mini market + EulerSwap pool and assert it works. Never broadcasts.
 
 set -euo pipefail
 
 : "${MAINNET_RPC_URL:?MAINNET_RPC_URL must be set. Copy .env.example to .env and source it.}"
 
-ANVIL_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ANVIL_PORT=${ANVIL_PORT:-8545}
 
 cleanup() {
@@ -36,9 +35,11 @@ echo "the whole mini market: ungoverned vaults, oracles, collateral matrix, pair
 echo "EulerSwap pool, and verifies a real swap moves inventory through the escrows."
 echo
 
-forge test \
+# The fork tests call vm.createSelectFork(vm.envString("MAINNET_RPC_URL")), so they fork
+# from the ENV VAR, not --fork-url. Point MAINNET_RPC_URL at anvil so they actually run
+# against the local fork (caching, no remote rate limits) instead of the remote RPC.
+MAINNET_RPC_URL="http://localhost:$ANVIL_PORT" forge test \
   --match-path "test/*.fork.t.sol" \
-  --fork-url "http://localhost:$ANVIL_PORT" \
   -vv
 
 echo

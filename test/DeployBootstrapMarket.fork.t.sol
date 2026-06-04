@@ -61,25 +61,27 @@ contract DeployBootstrapMarketForkTest is Test {
         ];
         for (uint256 i; i < 6; ++i) {
             assertTrue(irms[i] != address(0), "IRM zero");
-            for (uint256 j = i + 1; j < 6; ++j) assertTrue(irms[i] != irms[j], "IRMs not distinct");
+            for (uint256 j = i + 1; j < 6; ++j) {
+                assertTrue(irms[i] != irms[j], "IRMs not distinct");
+            }
         }
 
         // 2. Collateral matrix wired as intended.
         assertEq(IEVault(d.borrowStable).LTVBorrow(d.escrowUSDC), 0.95e4, "USDC -> RLUSD (cross)");
         assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowStable), 0.95e4, "RLUSD -> USDC (cross)");
-        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowWBTC), 0.80e4, "WBTC -> USDC");
-        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowWETH), 0.80e4, "WETH -> USDC");
+        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowWBTC), 0.8e4, "WBTC -> USDC");
+        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowWETH), 0.8e4, "WETH -> USDC");
         assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.escrowWSTETH), 0.85e4, "wstETH -> USDC");
         // The high-LTV LST leverage play: borrow WETH against wstETH / cbETH.
         assertEq(IEVault(d.borrowWETH).LTVBorrow(d.escrowWSTETH), 0.94e4, "wstETH -> WETH (high)");
         assertEq(IEVault(d.borrowWETH).LTVBorrow(d.escrowCBETH), 0.94e4, "cbETH -> WETH (high)");
         // New: BTC controllers, self-correlated tiers, stable -> BTC.
-        assertEq(IEVault(d.borrowCBBTC).LTVBorrow(d.escrowUSDC), 0.80e4, "USDC -> cbBTC");
-        assertEq(IEVault(d.borrowWETH).LTVBorrow(d.escrowWETH), 0.90e4, "WETH -> WETH (self)");
-        assertEq(IEVault(d.borrowCBBTC).LTVBorrow(d.escrowWBTC), 0.90e4, "WBTC -> cbBTC (BTC self)");
+        assertEq(IEVault(d.borrowCBBTC).LTVBorrow(d.escrowUSDC), 0.8e4, "USDC -> cbBTC");
+        assertEq(IEVault(d.borrowWETH).LTVBorrow(d.escrowWETH), 0.9e4, "WETH -> WETH (self)");
+        assertEq(IEVault(d.borrowCBBTC).LTVBorrow(d.escrowWBTC), 0.9e4, "WBTC -> cbBTC (BTC self)");
         // Yield-bearing collateral: the BORROWABLE WETH/BTC vaults are collateral too...
-        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.borrowWETH), 0.80e4, "borrowable WETH -> USDC");
-        assertEq(IEVault(d.borrowStable).LTVBorrow(d.borrowCBBTC), 0.80e4, "borrowable cbBTC -> RLUSD");
+        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.borrowWETH), 0.8e4, "borrowable WETH -> USDC");
+        assertEq(IEVault(d.borrowStable).LTVBorrow(d.borrowCBBTC), 0.8e4, "borrowable cbBTC -> RLUSD");
         // ...but a vault can never collateralise its own controller (self-pair skipped).
         assertEq(IEVault(d.borrowWETH).LTVBorrow(d.borrowWETH), 0, "WETH borrowable self-collateral");
 
@@ -96,7 +98,9 @@ contract DeployBootstrapMarketForkTest is Test {
 
         // 4. Inventory sits in the escrow vaults; pool is an authorized operator.
         assertEq(IEVault(d.escrowUSDC).convertToAssets(IEVault(d.escrowUSDC).balanceOf(lp)), SEED_USDC, "USDC inv");
-        assertEq(IEVault(d.escrowStable).convertToAssets(IEVault(d.escrowStable).balanceOf(lp)), SEED_STABLE, "RLUSD inv");
+        assertEq(
+            IEVault(d.escrowStable).convertToAssets(IEVault(d.escrowStable).balanceOf(lp)), SEED_STABLE, "RLUSD inv"
+        );
         assertTrue(IEVC(EVC).isAccountOperatorAuthorized(lp, d.pool), "operator not installed");
 
         // 5. Pool quotes ~1:1 minus the 1 bps fee. 100k USDC -> ~99.99k RLUSD (18 dec).
