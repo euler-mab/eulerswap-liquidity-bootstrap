@@ -42,22 +42,27 @@ contract DeployBootstrapMarketForkTest is Test {
         // Print the actual on-chain LTV matrix (visible with -vv).
         script.logLTVMatrix(d);
 
-        // 1. Every borrowable vault is ungoverned (immutable).
+        // 1. Every borrowable vault is ungoverned (immutable), and there are 6 of them.
         assertEq(IEVault(d.borrowUSDC).governorAdmin(), address(0), "USDC governed");
         assertEq(IEVault(d.borrowUSDT).governorAdmin(), address(0), "USDT governed");
         assertEq(IEVault(d.borrowStable).governorAdmin(), address(0), "RLUSD governed");
         assertEq(IEVault(d.borrowWETH).governorAdmin(), address(0), "WETH governed");
+        assertEq(IEVault(d.borrowCBBTC).governorAdmin(), address(0), "cbBTC governed");
+        assertEq(IEVault(d.borrowWBTC).governorAdmin(), address(0), "WBTC governed");
 
-        // Each borrowable vault has its OWN IRM instance (WETH on its own ETH curve).
-        address irmUSDC = IEVault(d.borrowUSDC).interestRateModel();
-        address irmUSDT = IEVault(d.borrowUSDT).interestRateModel();
-        address irmStable = IEVault(d.borrowStable).interestRateModel();
-        address irmWETH = IEVault(d.borrowWETH).interestRateModel();
-        assertTrue(
-            irmUSDC != irmUSDT && irmUSDC != irmStable && irmUSDC != irmWETH && irmUSDT != irmStable
-                && irmUSDT != irmWETH && irmStable != irmWETH,
-            "IRMs not distinct per vault"
-        );
+        // Each borrowable vault has its OWN IRM instance (distinct, non-zero).
+        address[6] memory irms = [
+            IEVault(d.borrowUSDC).interestRateModel(),
+            IEVault(d.borrowUSDT).interestRateModel(),
+            IEVault(d.borrowStable).interestRateModel(),
+            IEVault(d.borrowWETH).interestRateModel(),
+            IEVault(d.borrowCBBTC).interestRateModel(),
+            IEVault(d.borrowWBTC).interestRateModel()
+        ];
+        for (uint256 i; i < 6; ++i) {
+            assertTrue(irms[i] != address(0), "IRM zero");
+            for (uint256 j = i + 1; j < 6; ++j) assertTrue(irms[i] != irms[j], "IRMs not distinct");
+        }
 
         // 2. Collateral matrix wired as intended.
         assertEq(IEVault(d.borrowStable).LTVBorrow(d.escrowUSDC), 0.95e4, "USDC -> RLUSD (cross)");
@@ -68,6 +73,15 @@ contract DeployBootstrapMarketForkTest is Test {
         // The high-LTV LST leverage play: borrow WETH against wstETH / cbETH.
         assertEq(IEVault(d.borrowWETH).LTVBorrow(d.escrowWSTETH), 0.94e4, "wstETH -> WETH (high)");
         assertEq(IEVault(d.borrowWETH).LTVBorrow(d.escrowCBETH), 0.94e4, "cbETH -> WETH (high)");
+        // New: BTC controllers, self-correlated tiers, stable -> BTC.
+        assertEq(IEVault(d.borrowCBBTC).LTVBorrow(d.escrowUSDC), 0.80e4, "USDC -> cbBTC");
+        assertEq(IEVault(d.borrowWETH).LTVBorrow(d.escrowWETH), 0.90e4, "WETH -> WETH (self)");
+        assertEq(IEVault(d.borrowCBBTC).LTVBorrow(d.escrowWBTC), 0.90e4, "WBTC -> cbBTC (BTC self)");
+        // Yield-bearing collateral: the BORROWABLE WETH/BTC vaults are collateral too...
+        assertEq(IEVault(d.borrowUSDC).LTVBorrow(d.borrowWETH), 0.80e4, "borrowable WETH -> USDC");
+        assertEq(IEVault(d.borrowStable).LTVBorrow(d.borrowCBBTC), 0.80e4, "borrowable cbBTC -> RLUSD");
+        // ...but a vault can never collateralise its own controller (self-pair skipped).
+        assertEq(IEVault(d.borrowWETH).LTVBorrow(d.borrowWETH), 0, "WETH borrowable self-collateral");
 
         // 3. The cross/Lido oracles actually price (validates the wstETH + cbETH wiring).
         uint256 pWst = IEulerRouter(d.router).getQuote(1e18, WSTETH, USD);

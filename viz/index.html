@@ -41,6 +41,15 @@
   .tab { padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--dim); background: transparent;
          border: 0; border-radius: 6px; cursor: pointer; letter-spacing: .01em; }
   .tab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  /* pool source toggle + simulated controls */
+  .srcrow { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; }
+  .srctabs { display: inline-flex; gap: 2px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .srctab { padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--dim); background: transparent; border: 0; border-radius: 6px; cursor: pointer; }
+  .srctab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  #simControls { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--dim); flex-wrap: wrap; }
+  #simControls label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+  #simControls input[type=range] { width: 130px; accent-color: var(--ink); }
+  #simControls b { color: var(--ink); font-family: var(--mono); font-weight: 600; min-width: 56px; }
   .summary { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 18px; }
   .summary .k { font-size: 11px; color: var(--dim); }
   .summary .v { font-family: var(--mono); font-size: 16px; margin-top: 2px; }
@@ -114,42 +123,55 @@
     <div id="viewMatrix" hidden>
       <table id="matrix"></table>
       <p class="matnote">Borrow / liquidation LTV for each <b>collateral → borrowable</b> pair (1e4 = 100%). The stable
-      diagonal (e.g. USDC→USDC) is the leverage loop; off-diagonal stables are the cross. 31 pairs total — exactly
-      the set wired by <code>_ltvs()</code> in <code>BootstrapMarketBase.sol</code>.</p>
+      diagonal (e.g. USDC→USDC) is the leverage loop; WETH→WETH and BTC→BTC are correlated self-tiers at 0.90.
+      Escrow and borrowable forms of an asset share a number — expanded to vault level that's the 63 pairs wired by
+      <code>_ltvs()</code> in <code>BootstrapMarketBase.sol</code>.</p>
     </div>
 
     <div id="viewPool" hidden>
-      <form id="cfg" style="margin-bottom:18px">
-        <div>
-          <label>RPC URL (mainnet)</label>
-          <input id="rpc" placeholder="https://eth-mainnet.g.alchemy.com/v2/…" />
+      <div class="srcrow">
+        <div class="srctabs">
+          <button class="srctab active" data-src="sim">Simulated</button>
+          <button class="srctab" data-src="live">Live pool</button>
         </div>
-        <div>
-          <label>EulerSwap pool address</label>
-          <input id="pool" placeholder="0x… (logged by the deploy script)" />
+        <div id="simControls">
+          <label>Concentration <b id="concVal">0.9999</b></label>
+          <input type="range" id="concSlide" min="0" max="100" value="75" />
+          <label>Fee <b id="feeVal">1.0 bps</b></label>
+          <input type="range" id="feeSlide" min="0" max="30" value="1" step="0.5" />
         </div>
-        <div>
-          <label>USDC address (token A, 6 dp)</label>
-          <input id="tokenA" value="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" />
-        </div>
-        <div>
-          <label>Bootstrapped stable (token B, 18 dp = RLUSD)</label>
-          <input id="tokenB" value="0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD" />
-        </div>
-        <div class="row">
-          <button type="submit" id="go">Load pool</button>
-          <span class="status" id="status">Connect a mainnet RPC + the deployed pool address to load live reserves and the depth curve. The Graph and Matrix tabs work offline.</span>
-        </div>
-      </form>
-      <div id="poolBody" hidden>
+        <form id="cfg" hidden>
+          <div>
+            <label>RPC URL (mainnet)</label>
+            <input id="rpc" placeholder="https://eth-mainnet.g.alchemy.com/v2/…" />
+          </div>
+          <div>
+            <label>EulerSwap pool address</label>
+            <input id="pool" placeholder="0x… (logged by the deploy script)" />
+          </div>
+          <div>
+            <label>USDC address (token A, 6 dp)</label>
+            <input id="tokenA" value="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" />
+          </div>
+          <div>
+            <label>Bootstrapped stable (token B, 18 dp = RLUSD)</label>
+            <input id="tokenB" value="0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD" />
+          </div>
+          <div class="row">
+            <button type="submit" id="go">Load pool</button>
+            <span class="status" id="status">Paste a mainnet RPC + the deployed pool address to load live reserves and depth.</span>
+          </div>
+        </form>
+      </div>
+      <div id="poolBody">
         <div class="depthprice" id="depthPrice" style="text-align:left;margin-bottom:16px"></div>
         <div class="stats" id="liveStats" style="margin-bottom:18px"></div>
         <svg id="chart" viewBox="0 0 1000 340" width="100%" height="340"></svg>
         <table id="depthTable"></table>
-        <p class="muted">Cumulative dollars tradable vs the marginal execution price, centred on the $1 peg —
-        sells (green) push price below $1, buys (red) push it above; the gap at the centre is the swap-fee spread.
-        Concentration ≈ 1 stacks almost all depth within a hair of $1, and the curve tops out at the seeded inventory
-        because this template is unleveraged.</p>
+        <p class="muted" id="depthNote">Cumulative dollars tradable vs the marginal execution price, centred on the
+        $1 peg — sells (green) push price below $1, buys (red) push it above; the gap at the centre is the swap-fee
+        spread. Concentration ≈ 1 stacks almost all depth within a hair of $1, and the curve tops out at the seeded
+        inventory because this template is unleveraged. Drag the sliders to feel how concentration and fee reshape it.</p>
       </div>
     </div>
   </section>
@@ -165,21 +187,30 @@ const NODES = [
   { sym: 'RLUSD', borrow: true, inv: true, note: 'bootstrapped' },
   { sym: 'USDC', borrow: true, inv: true },
   { sym: 'USDT', borrow: true },
-  { sym: 'WBTC' }, { sym: 'cbBTC' },
+  { sym: 'WBTC', borrow: true }, { sym: 'cbBTC', borrow: true },
   { sym: 'WETH', borrow: true },
   { sym: 'wstETH' }, { sym: 'cbETH' },
 ];
-// collateral → borrowable edges with [borrowLTV, liqLTV], reproducing _ltvs() (31 pairs)
+const BORROWABLE = NODES.filter(n => n.borrow).map(n => n.sym);
+// collateral → borrowable edges, reproducing _ltvs()/_tierLTV() at the asset level (the
+// escrow and borrowable forms of an asset share an LTV; borrowable assets double as collateral).
+const tier = (s) => STABLES.includes(s) ? 'S' : s === 'WETH' ? 'W' : (s === 'cbBTC' || s === 'WBTC') ? 'B' : 'L';
+function tierLTV(c, k) {
+  if (c === 'S' && k === 'S') return [0.95, 0.96];
+  if (c === 'L' && k === 'S') return [0.85, 0.87];
+  if (c === 'L' && k === 'W') return [0.94, 0.95];
+  if (c === k) return [0.90, 0.92];            // WETH→WETH, BTC→BTC (correlated self-tier)
+  return [0.80, 0.85];                          // any other cross
+}
 function buildEdges() {
-  const E = [], add = (c, b, bl, ll) => E.push({ c, b, bl, ll });
-  for (const c of STABLES) { for (const b of STABLES) add(c, b, 0.95, 0.96); add(c, 'WETH', 0.80, 0.85); }
-  for (const c of ['cbBTC', 'WBTC']) { for (const b of STABLES) add(c, b, 0.80, 0.85); add(c, 'WETH', 0.78, 0.83); }
-  for (const b of STABLES) add('WETH', b, 0.80, 0.85);
-  for (const c of ['wstETH', 'cbETH']) { for (const b of STABLES) add(c, b, 0.85, 0.87); add(c, 'WETH', 0.94, 0.95); }
+  const E = [];
+  for (const n of NODES) for (const b of BORROWABLE) {
+    const [bl, ll] = tierLTV(tier(n.sym), tier(b));
+    E.push({ c: n.sym, b, bl, ll });
+  }
   return E;
 }
 const EDGES = buildEdges();
-const BORROWABLE = NODES.filter(n => n.borrow).map(n => n.sym);
 
 // ── ABIs (minimal) ──
 const POOL_ABI = [
@@ -204,12 +235,10 @@ const pow10 = (n) => 10 ** Number(n);
 const money = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(0) + 'k' : '$' + fmt(v, 0);
 const setStatus = (m, c = '') => { const s = document.getElementById('status'); s.textContent = m; s.className = 'status ' + c; };
 
-// ── summary strip ──
-// Every asset gets a collateral-only escrow vault; the 4 borrowable assets additionally
-// get a controller vault — so vaults = escrows (8) + borrowables (4) = 12.
+// ── summary strip — the market at a glance, not vault plumbing ──
 document.getElementById('summary').innerHTML = [
-  ['Vaults', BORROWABLE.length + NODES.length], ['Borrowable', BORROWABLE.length],
-  ['Escrow', NODES.length], ['LTV pairs', EDGES.length], ['Status', 'ungoverned · immutable'],
+  ['Assets', NODES.length], ['Borrowable', BORROWABLE.length],
+  ['EulerSwap pair', 'USDC / RLUSD'], ['Status', 'ungoverned · immutable'],
 ].map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
 
 // ── GRAPH ──
@@ -388,10 +417,60 @@ function renderDepth(sellArm, buyArm, symA, symB) {
     + [1, 2, 5, 10, 20].map(bp => `<tr><td>±${bp} bp</td><td>${(1 - bp / 1e4).toFixed(4)} – ${(1 + bp / 1e4).toFixed(4)}</td><td>${money(within(sellArm, bp))}</td><td>${money(within(buyArm, bp))}</td></tr>`).join('');
 }
 
-// deep-link: ?rpc=…&pool=…
+// ── simulated pool: the EulerSwap curve (CurveLib.f) in human $ units. For a $1:$1 pair
+// the decimal/price scaling is irrelevant, so px=py=1 and both equilibria = the seed. This
+// lets the depth chart work fully offline and react to the concentration/fee sliders. ──
+const SIM_SEED = 1_000_000;                                  // equilibrium reserves per side ($)
+const concFromSlider = (v) => 1 - 0.1 * Math.pow(10, -v / 25); // v:0..100 → 0.9 … 0.99999
+function fSim(x, x0, y0, c) {                                // opposite reserve for below-eq reserve x
+  if (c >= 1) return y0 + (x0 - x);                          // constant-sum
+  return y0 + ((x0 - x) * (c * x + (1 - c) * x0)) / x;
+}
+function simSweep(sell, conc, fee) {
+  const fracs = [0.01, 0.02, 0.04, 0.06, 0.09, 0.12, 0.16, 0.2, 0.27, 0.34, 0.42, 0.5, 0.58, 0.66, 0.74, 0.8, 0.85, 0.9, 0.93, 0.95, 0.97, 0.98, 0.99, 0.995];
+  const arm = []; let prevIn = 0, prevOut = 0;
+  for (const f of fracs) {
+    const out = SIM_SEED * f;                                // output drawn from output-side inventory ($)
+    const gross = fSim(SIM_SEED - out, SIM_SEED, SIM_SEED, conc) - SIM_SEED; // input added on the curve
+    const actualIn = gross / (1 - fee);                      // swap fee taken on input
+    const dIn = actualIn - prevIn, dOut = out - prevOut;
+    prevIn = actualIn; prevOut = out;
+    if (dIn <= 0 || dOut <= 0) continue;
+    arm.push({ price: sell ? (dOut / dIn) : (dIn / dOut), cum: actualIn });
+  }
+  return arm;
+}
+function renderSimulated() {
+  const conc = concFromSlider(+document.getElementById('concSlide').value);
+  const fee = (+document.getElementById('feeSlide').value) / 1e4;
+  document.getElementById('concVal').textContent = conc.toFixed(5);
+  document.getElementById('feeVal').textContent = (fee * 1e4).toFixed(1) + ' bps';
+  document.getElementById('liveStats').innerHTML = [
+    ['Reserve RLUSD', fmt(SIM_SEED, 0)], ['Reserve USDC', fmt(SIM_SEED, 0)],
+    ['Equilibrium', fmt(SIM_SEED, 0) + ' / ' + fmt(SIM_SEED, 0)],
+    ['Swap fee', (fee * 1e4).toFixed(2) + ' <small>bps</small>'], ['Concentration', conc.toFixed(5)],
+  ].map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  renderDepth(simSweep(true, conc, fee), simSweep(false, conc, fee), 'USDC', 'RLUSD');
+}
+document.querySelectorAll('.srctab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.srctab').forEach(x => x.classList.toggle('active', x === t));
+  const live = t.dataset.src === 'live';
+  document.getElementById('simControls').hidden = live;
+  document.getElementById('cfg').hidden = !live;
+  if (!live) renderSimulated();
+}));
+document.getElementById('concSlide').addEventListener('input', renderSimulated);
+document.getElementById('feeSlide').addEventListener('input', renderSimulated);
+renderSimulated(); // default: simulated depth, no connection needed
+
+// deep-link: ?rpc=…&pool=… opens the Pool tab in Live mode and loads
 const q = new URLSearchParams(location.search);
 for (const id of ['rpc', 'pool', 'tokenA', 'tokenB']) if (q.get(id)) document.getElementById(id).value = q.get(id);
-if (q.get('rpc') && q.get('pool')) { activateTab('pool'); document.getElementById('go').click(); }
+if (q.get('rpc') && q.get('pool')) {
+  activateTab('pool');
+  document.querySelector('.srctab[data-src="live"]').click();
+  document.getElementById('go').click();
+}
 </script>
 </body>
 </html>

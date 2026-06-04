@@ -23,9 +23,12 @@ import {HookMiner} from "../src/HookMiner.sol";
 ///
 /// It's effectively your own immutable lending market with a customisable collateral
 /// set chosen at deploy time:
-///   • Borrowable stables: USDC, USDT, and the stable you're bootstrapping (RLUSD here)
-///   • Borrowable ETH:     WETH
-///   • Collateral:         cbBTC, WBTC, WETH, wstETH, cbETH (edit the lists below)
+///   • Borrowable (lending) vaults: USDC, USDT, the stable you're bootstrapping (RLUSD),
+///     WETH, cbBTC, WBTC — each ALSO doubles as yield-bearing collateral (a depositor
+///     pledges the interest-earning eVault share).
+///   • Collateral-only ESCROW vaults: USDC, USDT, RLUSD, WETH, cbBTC, WBTC, wstETH, cbETH
+///     — the non-rehypothecated opt-out (collateral that can't be lent out). The swap
+///     inventory MUST live in escrow; an escrow for WETH/BTC is otherwise optional.
 ///   • Reactive adaptive-curve IRM, prices via Chainlink / FixedRate / Lido cross
 ///   • ...then ALL governance renounced — vaults + router are immutable.
 ///
@@ -100,12 +103,14 @@ abstract contract BootstrapMarketBase is Script {
     uint256 constant STALE_LST_RATE = 25 hours; // cbETH/ETH exchange-rate feed (~24h heartbeat)
 
     // ───────────────────────────── LTV tiers (1e4) ─────────────────────────────
+    // Risk tiers: STABLE (USDC/USDT/RLUSD), WETH, BTC (cbBTC/WBTC), LST (wstETH/cbETH).
+    // _tierLTV() maps each (collateral tier -> borrow tier) to one of these pairs.
     uint16 constant LTV_STABLE_B = 0.95e4; // stable <-> stable (the loop / cross)
     uint16 constant LTV_STABLE_L = 0.96e4;
-    uint16 constant LTV_VOL_B = 0.80e4; // BTC/ETH -> stables, stables -> WETH
+    uint16 constant LTV_VOL_B = 0.80e4; // any cross between unlike tiers (vol<->stable, vol<->vol)
     uint16 constant LTV_VOL_L = 0.85e4;
-    uint16 constant LTV_BTC_ETH_B = 0.78e4; // BTC -> WETH
-    uint16 constant LTV_BTC_ETH_L = 0.83e4;
+    uint16 constant LTV_SELF_B = 0.90e4; // same vol tier: WETH->WETH, BTC->BTC (correlated)
+    uint16 constant LTV_SELF_L = 0.92e4;
     uint16 constant LTV_LST_STABLE_B = 0.85e4; // wstETH/cbETH -> stables
     uint16 constant LTV_LST_STABLE_L = 0.87e4;
     uint16 constant LTV_LST_ETH_B = 0.94e4; // wstETH/cbETH -> WETH (high, correlated)
@@ -121,6 +126,7 @@ abstract contract BootstrapMarketBase is Script {
     int256 constant IRM_TARGET_UTILIZATION = 0.90e18;
     int256 constant IRM_INIT_RATE_STABLE = 0.04e18 / YEAR; // 4% APR at target (stables)
     int256 constant IRM_INIT_RATE_ETH = 0.025e18 / YEAR; // 2.5% APR at target (WETH)
+    int256 constant IRM_INIT_RATE_BTC = 0.01e18 / YEAR; // 1% APR at target (cbBTC, WBTC)
     int256 constant IRM_MIN_RATE_AT_TARGET = 0.001e18 / YEAR; // 0.1% APR
     int256 constant IRM_MAX_RATE_AT_TARGET = 2e18 / YEAR; // 200% APR
     int256 constant IRM_CURVE_STEEPNESS = 4e18;
@@ -130,19 +136,28 @@ abstract contract BootstrapMarketBase is Script {
     uint64 constant CONCENTRATION = 0.9999e18; // near constant-sum for a $1 peg
     uint64 constant SWAP_FEE = 1e14; // 1 bps — the fee that offsets borrow cost
 
+    // Risk tiers, used by _ltvs()/_tierLTV() to look up the LTV for a (collateral, borrow) pair.
+    uint8 constant TIER_S = 0; // stables
+    uint8 constant TIER_W = 1; // WETH
+    uint8 constant TIER_B = 2; // BTC (cbBTC, WBTC)
+    uint8 constant TIER_L = 3; // ETH LSTs (wstETH, cbETH)
+
     // ─────────────────── Vault indices (EdgeFactory order) ──────────────────────
+    // 14 vaults: 6 borrowable (each also collateral-eligible) + 8 collateral-only escrow.
     uint256 constant BORROW_USDC = 0;
     uint256 constant BORROW_USDT = 1;
     uint256 constant BORROW_STABLE = 2;
     uint256 constant BORROW_WETH = 3;
-    uint256 constant ESC_USDC = 4;
-    uint256 constant ESC_USDT = 5;
-    uint256 constant ESC_STABLE = 6;
-    uint256 constant ESC_CBBTC = 7;
-    uint256 constant ESC_WBTC = 8;
+    uint256 constant BORROW_CBBTC = 4;
+    uint256 constant BORROW_WBTC = 5;
+    uint256 constant ESC_USDC = 6;
+    uint256 constant ESC_USDT = 7;
+    uint256 constant ESC_STABLE = 8;
     uint256 constant ESC_WETH = 9;
-    uint256 constant ESC_WSTETH = 10;
-    uint256 constant ESC_CBETH = 11;
+    uint256 constant ESC_CBBTC = 10;
+    uint256 constant ESC_WBTC = 11;
+    uint256 constant ESC_WSTETH = 12;
+    uint256 constant ESC_CBETH = 13;
 
     struct Deployment {
         address router;
@@ -155,7 +170,9 @@ abstract contract BootstrapMarketBase is Script {
         address escrowUSDT;
         address borrowWETH;
         address escrowWETH;
+        address borrowCBBTC;
         address escrowCBBTC;
+        address borrowWBTC;
         address escrowWBTC;
         address escrowWSTETH;
         address escrowCBETH;
@@ -168,15 +185,19 @@ abstract contract BootstrapMarketBase is Script {
         public
         returns (Deployment memory d)
     {
-        // Each borrowable vault gets its own IRM instance (independent state + params).
-        address irmUSDC = _deployIRM(IRM_INIT_RATE_STABLE);
-        address irmUSDT = _deployIRM(IRM_INIT_RATE_STABLE);
-        address irmStable = _deployIRM(IRM_INIT_RATE_STABLE);
-        address irmWETH = _deployIRM(IRM_INIT_RATE_ETH);
+        // Each borrowable vault gets its own IRM instance (independent state + params),
+        // indexed by controller vault index so _vaults can wire them positionally.
+        address[6] memory irm;
+        irm[BORROW_USDC] = _deployIRM(IRM_INIT_RATE_STABLE);
+        irm[BORROW_USDT] = _deployIRM(IRM_INIT_RATE_STABLE);
+        irm[BORROW_STABLE] = _deployIRM(IRM_INIT_RATE_STABLE);
+        irm[BORROW_WETH] = _deployIRM(IRM_INIT_RATE_ETH);
+        irm[BORROW_CBBTC] = _deployIRM(IRM_INIT_RATE_BTC);
+        irm[BORROW_WBTC] = _deployIRM(IRM_INIT_RATE_BTC);
 
         (address router, address[] memory v) = IEdgeFactory(EDGE_FACTORY).deploy(
             IEdgeFactory.DeployParams({
-                vaults: _vaults(irmUSDC, irmUSDT, irmStable, irmWETH),
+                vaults: _vaults(irm),
                 router: IEdgeFactory.RouterParams({externalResolvedVaults: new address[](0), adapters: _adapters()}),
                 ltv: _ltvs(),
                 unitOfAccount: USD
@@ -188,6 +209,8 @@ abstract contract BootstrapMarketBase is Script {
         d.borrowUSDT = v[BORROW_USDT];
         d.borrowStable = v[BORROW_STABLE];
         d.borrowWETH = v[BORROW_WETH];
+        d.borrowCBBTC = v[BORROW_CBBTC];
+        d.borrowWBTC = v[BORROW_WBTC];
         d.escrowUSDC = v[ESC_USDC];
         d.escrowUSDT = v[ESC_USDT];
         d.escrowStable = v[ESC_STABLE];
@@ -225,24 +248,23 @@ abstract contract BootstrapMarketBase is Script {
         );
     }
 
-    function _vaults(address irmUSDC, address irmUSDT, address irmStable, address irmWETH)
-        internal
-        pure
-        returns (IEdgeFactory.VaultParams[] memory vp)
-    {
-        vp = new IEdgeFactory.VaultParams[](12);
-        // borrowable (controllers) — each with its own IRM
-        vp[BORROW_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: irmUSDC, escrow: false});
-        vp[BORROW_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: irmUSDT, escrow: false});
-        vp[BORROW_STABLE] = IEdgeFactory.VaultParams({asset: STABLE, irm: irmStable, escrow: false});
-        vp[BORROW_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: irmWETH, escrow: false});
-        // collateral-only (escrow)
+    /// @param irm Adaptive-curve IRM per borrowable vault, indexed by controller vault index.
+    function _vaults(address[6] memory irm) internal pure returns (IEdgeFactory.VaultParams[] memory vp) {
+        vp = new IEdgeFactory.VaultParams[](14);
+        // borrowable (controllers) — each with its own IRM, each also collateral-eligible
+        vp[BORROW_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: irm[BORROW_USDC], escrow: false});
+        vp[BORROW_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: irm[BORROW_USDT], escrow: false});
+        vp[BORROW_STABLE] = IEdgeFactory.VaultParams({asset: STABLE, irm: irm[BORROW_STABLE], escrow: false});
+        vp[BORROW_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: irm[BORROW_WETH], escrow: false});
+        vp[BORROW_CBBTC] = IEdgeFactory.VaultParams({asset: CBBTC, irm: irm[BORROW_CBBTC], escrow: false});
+        vp[BORROW_WBTC] = IEdgeFactory.VaultParams({asset: WBTC, irm: irm[BORROW_WBTC], escrow: false});
+        // collateral-only (escrow) — non-rehypothecated; USDC/STABLE here are the swap inventory
         vp[ESC_USDC] = IEdgeFactory.VaultParams({asset: USDC, irm: address(0), escrow: true});
         vp[ESC_USDT] = IEdgeFactory.VaultParams({asset: USDT, irm: address(0), escrow: true});
         vp[ESC_STABLE] = IEdgeFactory.VaultParams({asset: STABLE, irm: address(0), escrow: true});
+        vp[ESC_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: address(0), escrow: true});
         vp[ESC_CBBTC] = IEdgeFactory.VaultParams({asset: CBBTC, irm: address(0), escrow: true});
         vp[ESC_WBTC] = IEdgeFactory.VaultParams({asset: WBTC, irm: address(0), escrow: true});
-        vp[ESC_WETH] = IEdgeFactory.VaultParams({asset: WETH, irm: address(0), escrow: true});
         vp[ESC_WSTETH] = IEdgeFactory.VaultParams({asset: WSTETH, irm: address(0), escrow: true});
         vp[ESC_CBETH] = IEdgeFactory.VaultParams({asset: CBETH, irm: address(0), escrow: true});
     }
@@ -275,38 +297,44 @@ abstract contract BootstrapMarketBase is Script {
         );
     }
 
-    /// @dev Collateral -> controller LTVs. Stables loop/cross at 0.95; BTC + ETH back
-    ///      stables; ETH LSTs back WETH at a high (correlated) LTV.
+    /// @dev Collateral -> controller LTVs. Every collateral vault (the 8 escrows plus the
+    ///      borrowable WETH/cbBTC/WBTC forms, which double as yield-bearing collateral) is
+    ///      wired to every one of the 6 controllers, except a vault collateralising itself.
+    ///      The LTV is looked up by risk tier in _tierLTV(), so escrow and borrowable forms
+    ///      of the same asset share a number. 11 collateral vaults x 6 controllers - 3
+    ///      self-pairs = 63.
     function _ltvs() internal pure returns (IEdgeFactory.LTVParams[] memory lp) {
-        uint256[3] memory stableC = [BORROW_USDC, BORROW_USDT, BORROW_STABLE];
-        uint256[3] memory stableE = [ESC_USDC, ESC_USDT, ESC_STABLE];
-        uint256[2] memory btcE = [ESC_CBBTC, ESC_WBTC];
-        uint256[2] memory lstE = [ESC_WSTETH, ESC_CBETH];
+        uint256[11] memory cVault = [
+            ESC_USDC, ESC_USDT, ESC_STABLE, // stables (escrow)
+            ESC_WETH, BORROW_WETH, // WETH (escrow + borrowable)
+            ESC_CBBTC, BORROW_CBBTC, ESC_WBTC, BORROW_WBTC, // BTC (escrow + borrowable)
+            ESC_WSTETH, ESC_CBETH // LSTs (escrow)
+        ];
+        uint8[11] memory cTier =
+            [TIER_S, TIER_S, TIER_S, TIER_W, TIER_W, TIER_B, TIER_B, TIER_B, TIER_B, TIER_L, TIER_L];
+        uint256[6] memory ctrl =
+            [BORROW_USDC, BORROW_USDT, BORROW_STABLE, BORROW_WETH, BORROW_CBBTC, BORROW_WBTC];
+        uint8[6] memory ctrlTier = [TIER_S, TIER_S, TIER_S, TIER_W, TIER_B, TIER_B];
 
-        lp = new IEdgeFactory.LTVParams[](31);
+        lp = new IEdgeFactory.LTVParams[](63);
         uint256 k;
-        for (uint256 i; i < 3; ++i) {
-            for (uint256 j; j < 3; ++j) {
-                lp[k++] = _ltv(stableE[i], stableC[j], LTV_STABLE_B, LTV_STABLE_L); // stable -> stable
+        for (uint256 i; i < 11; ++i) {
+            for (uint256 j; j < 6; ++j) {
+                if (cVault[i] == ctrl[j]) continue; // a vault can't collateralise itself
+                (uint16 b, uint16 l) = _tierLTV(cTier[i], ctrlTier[j]);
+                lp[k++] = _ltv(cVault[i], ctrl[j], b, l);
             }
-            lp[k++] = _ltv(stableE[i], BORROW_WETH, LTV_VOL_B, LTV_VOL_L); // stable -> WETH
         }
-        for (uint256 i; i < 2; ++i) {
-            for (uint256 j; j < 3; ++j) {
-                lp[k++] = _ltv(btcE[i], stableC[j], LTV_VOL_B, LTV_VOL_L); // BTC -> stable
-            }
-            lp[k++] = _ltv(btcE[i], BORROW_WETH, LTV_BTC_ETH_B, LTV_BTC_ETH_L); // BTC -> WETH
-        }
-        for (uint256 j; j < 3; ++j) {
-            lp[k++] = _ltv(ESC_WETH, stableC[j], LTV_VOL_B, LTV_VOL_L); // WETH -> stable
-        }
-        for (uint256 i; i < 2; ++i) {
-            for (uint256 j; j < 3; ++j) {
-                lp[k++] = _ltv(lstE[i], stableC[j], LTV_LST_STABLE_B, LTV_LST_STABLE_L); // LST -> stable
-            }
-            lp[k++] = _ltv(lstE[i], BORROW_WETH, LTV_LST_ETH_B, LTV_LST_ETH_L); // LST -> WETH (high)
-        }
-        require(k == 31, "ltv count");
+        require(k == 63, "ltv count");
+    }
+
+    /// @dev LTV for a (collateral tier -> borrow tier) pair. LSTs are never a borrow tier.
+    function _tierLTV(uint8 c, uint8 ctrl) internal pure returns (uint16 b, uint16 l) {
+        if (c == TIER_S && ctrl == TIER_S) return (LTV_STABLE_B, LTV_STABLE_L); // stable loop/cross
+        if (c == TIER_L && ctrl == TIER_S) return (LTV_LST_STABLE_B, LTV_LST_STABLE_L); // LST -> stable
+        if (c == TIER_L && ctrl == TIER_W) return (LTV_LST_ETH_B, LTV_LST_ETH_L); // LST -> WETH (high)
+        if (c == ctrl) return (LTV_SELF_B, LTV_SELF_L); // WETH->WETH, BTC->BTC (correlated)
+        return (LTV_VOL_B, LTV_VOL_L); // any other cross
     }
 
     // ───────────────────────────── pool deploy ─────────────────────────────────
@@ -385,6 +413,8 @@ abstract contract BootstrapMarketBase is Script {
         require(IEVault(d.borrowUSDT).asset() == USDT, "wire: borrowUSDT");
         require(IEVault(d.borrowStable).asset() == STABLE, "wire: borrowStable");
         require(IEVault(d.borrowWETH).asset() == WETH, "wire: borrowWETH");
+        require(IEVault(d.borrowCBBTC).asset() == CBBTC, "wire: borrowCBBTC");
+        require(IEVault(d.borrowWBTC).asset() == WBTC, "wire: borrowWBTC");
         require(IEVault(d.escrowUSDC).asset() == USDC, "wire: escrowUSDC");
         require(IEVault(d.escrowUSDT).asset() == USDT, "wire: escrowUSDT");
         require(IEVault(d.escrowStable).asset() == STABLE, "wire: escrowStable");
@@ -431,6 +461,7 @@ abstract contract BootstrapMarketBase is Script {
         console.log("EulerSwap pool:   ", d.pool);
         console.log("borrow USDC/USDT: ", d.borrowUSDC, d.borrowUSDT);
         console.log("borrow STABLE/WETH:", d.borrowStable, d.borrowWETH);
+        console.log("borrow cbBTC/WBTC: ", d.borrowCBBTC, d.borrowWBTC);
         console.log("escrow USDC/STABLE:", d.escrowUSDC, d.escrowStable);
         console.log("escrow cbBTC/WBTC: ", d.escrowCBBTC, d.escrowWBTC);
         console.log("escrow WETH:      ", d.escrowWETH);
@@ -441,11 +472,22 @@ abstract contract BootstrapMarketBase is Script {
     ///         the source of truth, so the docs can never silently drift. Each cell is
     ///         "borrowLTV/liqLTV" as integer percent; "-" means not accepted as collateral.
     function logLTVMatrix(Deployment memory d) public view {
-        address[4] memory ctrl = [d.borrowUSDC, d.borrowUSDT, d.borrowStable, d.borrowWETH];
+        address[6] memory ctrl =
+            [d.borrowUSDC, d.borrowUSDT, d.borrowStable, d.borrowWETH, d.borrowCBBTC, d.borrowWBTC];
         console.log("=== On-chain LTV matrix (borrow/liq, percent) | deposit row x borrow column ===");
         console.log(
-            string.concat(_padR("deposit", 9), _padR("USDC", 8), _padR("USDT", 8), _padR("RLUSD", 8), "WETH")
+            string.concat(
+                _padR("deposit", 9),
+                _padR("USDC", 8),
+                _padR("USDT", 8),
+                _padR("RLUSD", 8),
+                _padR("WETH", 8),
+                _padR("cbBTC", 8),
+                "WBTC"
+            )
         );
+        // Rows are the escrow forms; the borrowable WETH/cbBTC/WBTC collateral forms carry
+        // the same LTVs (minus the self-pair, which can't collateralise its own controller).
         _logLTVRow("USDC", d.escrowUSDC, ctrl);
         _logLTVRow("USDT", d.escrowUSDT, ctrl);
         _logLTVRow("RLUSD", d.escrowStable, ctrl);
@@ -456,14 +498,16 @@ abstract contract BootstrapMarketBase is Script {
         _logLTVRow("cbETH", d.escrowCBETH, ctrl);
     }
 
-    function _logLTVRow(string memory name, address coll, address[4] memory ctrl) internal view {
+    function _logLTVRow(string memory name, address coll, address[6] memory ctrl) internal view {
         console.log(
             string.concat(
                 _padR(name, 9),
                 _padR(_ltvCell(ctrl[0], coll), 8),
                 _padR(_ltvCell(ctrl[1], coll), 8),
                 _padR(_ltvCell(ctrl[2], coll), 8),
-                _ltvCell(ctrl[3], coll)
+                _padR(_ltvCell(ctrl[3], coll), 8),
+                _padR(_ltvCell(ctrl[4], coll), 8),
+                _ltvCell(ctrl[5], coll)
             )
         );
     }

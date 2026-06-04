@@ -62,12 +62,12 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 
 ## The market it builds (default config)
 
-12 vaults deployed via `EdgeFactory`, in this fixed index order (the `BORROW_*` / `ESC_*` constants):
+14 vaults deployed via `EdgeFactory`, in this fixed index order (the `BORROW_*` / `ESC_*` constants):
 
-- **Borrowable (controllers, own IRM each):** `USDC`, `USDT`, `STABLE` (RLUSD), `WETH`. Stables start at 4% APR-at-target, WETH at 2.5%.
-- **Collateral-only (escrow):** `USDC`, `USDT`, `STABLE`, `cbBTC`, `WBTC`, `WETH`, `wstETH`, `cbETH`.
+- **Borrowable (controllers, own IRM each):** `USDC`, `USDT`, `STABLE` (RLUSD), `WETH`, `cbBTC`, `WBTC`. Stables 4% APR-at-target, WETH 2.5%, BTC 1%. Each borrowable vault **also doubles as yield-bearing collateral** (a depositor pledges the interest-earning eVault share).
+- **Collateral-only (escrow):** `USDC`, `USDT`, `STABLE`, `WETH`, `cbBTC`, `WBTC`, `wstETH`, `cbETH`. "Escrow" = collateral that can't be lent out (non-rehypothecated) — the opt-out, and where the swap inventory *must* live. wstETH/cbETH are escrow-only.
 - **Oracles → USD:** Chainlink for USDC/USDT/cbBTC/WBTC/WETH; `FixedRateOracle($1)` for RLUSD; `CrossAdapter` for wstETH (LidoFundamental → WETH → USD) and cbETH (Chainlink cbETH/ETH → WETH → USD), mirroring Euler's PrimeCluster.
-- **LTV tiers (31 pairs):** stable↔stable 0.95/0.96 · BTC/ETH→stable & stable→WETH 0.80/0.85 · BTC→WETH 0.78/0.83 · LST→stable 0.85/0.87 · LST→WETH 0.94/0.95 (high, correlated).
+- **LTV matrix (63 vault-level pairs, by risk tier — see `_tierLTV`):** stable↔stable 0.95/0.96 · WETH→WETH & BTC→BTC self-correlated 0.90/0.92 · LST→stable 0.85/0.87 · LST→WETH 0.94/0.95 · every other cross 0.80/0.85. Escrow and borrowable forms of an asset share a number; a vault never collateralises its own controller.
 - **EulerSwap pool:** pairs `USDC` with `STABLE`; inventory in the two stable escrows, debt in the two stable borrowables. RLUSD (`0x82…`) sorts below USDC (`0xA0…`), so **RLUSD is token0**.
 
 ## Conventions
@@ -84,7 +84,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 ## Invariants — do not break
 
 - **Inventory lives in collateral-only escrow vaults.** Nothing can be borrowed *out* of an escrow vault, so the money market can never drain swap liquidity. Don't make the stable inventory borrowable.
-- **`require(k == 31)` in `_ltvs()`.** The LTV builder hard-asserts the pair count. If you change the collateral/controller set you must update the loops *and* this count, or the deploy reverts.
+- **`require(k == 63)` in `_ltvs()`.** The LTV builder hard-asserts the pair count. If you change the collateral/controller set you must update the loops *and* this count, or the deploy reverts.
 - **Vault indices must match `EdgeFactory` return order.** The factory returns vaults in the order they were passed in `_vaults()`; the `BORROW_*` / `ESC_*` constants encode that order and are reused everywhere. A mismatch silently wires the wrong vault.
 - **Operator installed before `deployPool`.** `IEVC.setAccountOperator(eulerAccount, pool, true)` must run first, or `deployPool` reverts with `OperatorNotInstalled`.
 - **`deployPool` routed through the EVC.** Wrapped in `evc.call(factory, eulerAccount, ...)` because the factory authenticates `_msgSender() == eulerAccount`. Don't call the factory directly.
@@ -95,7 +95,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 ## Common tasks
 
 - **Bootstrap your own stable**: change the `STABLE` constant in `BootstrapMarketBase.sol`. It's priced by `FixedRateOracle($1)` in `_adapters()`; if your token has a Chainlink feed, swap that adapter for a `ChainlinkOracle`. Update `SEED_STABLE` decimals in the entrypoint to match.
-- **Add/remove a collateral asset**: touch every layer — add the token constant, add a `BORROW_*`/`ESC_*` index, extend `_vaults()`, `_adapters()`, `_ltvs()` (and fix the `k == 31` count), the `Deployment` struct, and `logDeployment()`. The fork test's LTV/oracle assertions are the safety net.
+- **Add/remove a collateral asset**: touch every layer — add the token constant, add a `BORROW_*`/`ESC_*` index, extend `_vaults()`, `_adapters()`, `_ltvs()` (and fix the `k == 63` count), the `Deployment` struct, and `logDeployment()`. The fork test's LTV/oracle assertions are the safety net.
 - **Calibrate before mainnet**: review the parameter table in [README.md](README.md#calibrate-before-mainnet) — seeds, the `LTV_*` tiers, the adaptive-curve `IRM_*` values, `CONCENTRATION`, `SWAP_FEE`, and **verify every Chainlink feed** against docs.chain.link.
 - **Add fork-less test coverage**: extend `test/Unit.t.sol`; expose any new `internal` helper via a harness like `PriceHarness`.
 - **Visualize a deployed market**: open `viz/index.html` for the Graph/Matrix of the market (renders offline); paste an RPC + the pool address the deploy logged for live reserves + the depth curve. If you changed the collateral set, update the `NODES` list and `buildEdges()` in that file so the Graph/Matrix match (the live state + depth chart read from the pool and need no edits).
@@ -105,7 +105,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 - **Fork tests fail without `MAINNET_RPC_URL`** — expected. Use `test/Unit.t.sol` (or `--no-match-path "test/*.fork.t.sol"`) for an RPC-free run.
 - **`IERC20.approve` reverts on USDT** — it returns no bool; use `_safeApprove` / a low-level call.
 - **Cross/LST oracle wiring is subtle** — wstETH and cbETH price through a two-hop `CrossAdapter` (asset → WETH → USD). Verify the Lido/cbETH adapters and the shared WETH adapter; the fork test sanity-checks the resulting USD prices.
-- **Changing the collateral set is multi-file** — see "Add/remove a collateral asset"; missing one layer either reverts (`k == 31`) or mis-wires a vault.
+- **Changing the collateral set is multi-file** — see "Add/remove a collateral asset"; missing one layer either reverts (`k == 63`) or mis-wires a vault.
 - **Default feeds/addresses are mainnet placeholders** — verify everything before broadcasting; the deploy is immutable.
 - **Oracle staleness is per-feed** — `STALE_CRYPTO` (3h, ETH/BTC), `STALE_USD`/`STALE_LST_RATE` (25h). It's heartbeat + buffer: a window set *below* a feed's real heartbeat bricks it permanently in an immutable market, so don't over-tighten.
 - **Pool isn't registered.** The script deploys + activates the pool but doesn't `registerPool` in the `EulerSwapRegistry` (separate step, needs an ETH validity bond). Not required for swaps or v4 routing, but integrators prefer registered pools. See [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md#registration-is-a-separate-optional-step).

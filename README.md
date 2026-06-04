@@ -50,12 +50,13 @@ the borrowable vaults wide open.
 
 ![Flywheel](assets/3-flywheel.png)
 
-The borrowable vaults accept a **customisable collateral set** — here cbBTC, WBTC, WETH,
-wstETH and cbETH — so outsiders can borrow your stables (and WETH) against their crypto.
-wstETH/cbETH can borrow WETH at a high, correlated LTV (the classic LST-leverage play).
-That organic borrow demand pays interest to lenders (deepening the pool you borrow from)
-and builds genuine demand for the stable you're launching. It's effectively your own
-immutable Aave/Spark instance, with EulerSwap providing the bootstrapped exit liquidity.
+The market lends and borrows a **customisable asset set** — here USDC, USDT, RLUSD, WETH,
+cbBTC and WBTC are all borrowable (and each doubles as *yield-bearing* collateral), with
+wstETH and cbETH added as collateral-only. Outsiders borrow your stables (or WETH/BTC)
+against their crypto; wstETH/cbETH borrow WETH at a high, correlated LTV (the classic
+LST-leverage play). That organic borrow demand pays interest to lenders (deepening the pool
+you borrow from) and builds genuine demand for the stable you're launching. It's effectively
+your own immutable Aave/Spark instance, with EulerSwap providing the bootstrapped exit liquidity.
 
 ### Capital efficiency
 
@@ -70,21 +71,25 @@ trades actually cluster.
 ## What the script deploys
 
 ```
-                 EulerRouter (Chainlink / FixedRate / Lido-cross adapters, renounced)
-                  │
-  ┌───────────────┴───────────────────────────────────────────────────────────┐
-  │  BORROWABLE (controllers, ungoverned)      COLLATERAL-ONLY (escrow)         │
-  │  ┌──────┐ ┌──────┐ ┌───────┐ ┌──────┐      ┌──────┐┌──────┐┌───────┐        │
-  │  │ USDC │ │ USDT │ │ RLUSD │ │ WETH │      │ USDC ││ USDT ││ RLUSD │  ← swap │
-  │  └──────┘ └──────┘ └───────┘ └──────┘      └──────┘└──────┘└───────┘  inv.   │
-  │      ▲ accepts as collateral ────────────▶ ┌──────┐┌──────┐┌──────┐┌──────┐ │
-  │      │  (wstETH/cbETH → WETH at high LTV)   │cbBTC ││ WBTC ││wstETH││cbETH │ │
-  │                                            └──────┘└──────┘└──────┘└──────┘ │
-  │                                                + WETH escrow      ← organic │
-  └───────────────────────────────────────────────────────────────────────────┘
-                  │
-        EulerSwap pool (USDC / RLUSD)
-        supply = escrows (inventory) · borrow = borrowable vaults (debt)
+            EulerRouter (Chainlink / FixedRate / Lido-cross adapters, renounced)
+             │
+  ┌──────────┴────────────────────────────────────────────────────────────────┐
+  │  BORROWABLE (controllers, ungoverned — each ALSO yield-bearing collateral)  │
+  │  ┌──────┐┌──────┐┌───────┐┌──────┐┌───────┐┌──────┐                         │
+  │  │ USDC ││ USDT ││ RLUSD ││ WETH ││ cbBTC ││ WBTC │  ← lend / borrow         │
+  │  └──────┘└──────┘└───────┘└──────┘└───────┘└──────┘                         │
+  │                                                                             │
+  │  COLLATERAL-ONLY ESCROW (non-rehypothecated — can't be lent out)            │
+  │  ┌──────┐┌──────┐┌───────┐                                                  │
+  │  │ USDC ││ USDT ││ RLUSD │  ← USDC + RLUSD here are the ring-fenced swap inv.│
+  │  └──────┘└──────┘└───────┘                                                  │
+  │  ┌──────┐┌──────┐┌──────┐┌───────┐┌──────┐                                  │
+  │  │ WETH ││cbBTC ││ WBTC ││wstETH ││cbETH │  ← collateral opt-out / LST-only  │
+  │  └──────┘└──────┘└──────┘└───────┘└──────┘                                  │
+  └─────────────────────────────────────────────────────────────────────────────┘
+             │
+   EulerSwap pool (USDC / RLUSD)
+   supply = stable escrows (inventory) · borrow = stable borrowables (debt)
 ```
 
 In one `deployMarket(...)` call:
@@ -93,10 +98,10 @@ In one `deployMarket(...)` call:
    for RLUSD, and Euler's own wstETH/cbETH **cross adapters** (Lido / Chainlink × ETH-USD).
 2. **A reactive adaptive-curve IRM per borrowable vault** — each self-tunes its rate
    toward target utilization (the right choice for an immutable market that can never be
-   retuned), with its own curve per asset (stables vs ETH).
-3. **An Edge market** via the canonical `EdgeFactory`: borrowable USDC/USDT/RLUSD/WETH +
-   collateral-only escrow vaults (USDC/USDT/RLUSD/cbBTC/WBTC/WETH/wstETH/cbETH), a fresh
-   `EulerRouter`, the full LTV matrix — then **all governance renounced** (immutable).
+   retuned), with its own curve per asset (stables 4% / WETH 2.5% / BTC 1% at target).
+3. **An Edge market** via the canonical `EdgeFactory`: borrowable USDC/USDT/RLUSD/WETH/cbBTC/WBTC
+   (each also collateral) + collateral-only escrow vaults (USDC/USDT/RLUSD/WETH/cbBTC/WBTC/wstETH/
+   cbETH), a fresh `EulerRouter`, the full LTV matrix — then **all governance renounced** (immutable).
 4. **The seed LP equity** deposited into the USDC + RLUSD escrow vaults (the inventory).
 5. **A USDC/RLUSD EulerSwap pool** whose inventory sits in the escrows (ring-fenced) and
    which borrows from the borrowable vaults. The address is **salt-mined** for valid
@@ -154,8 +159,8 @@ The defaults are sensible starting points, **not** tuned values. Review:
 | `STABLE` | RLUSD | The stablecoin you're bootstrapping. Change to yours. |
 | `SEED_USDC` / `SEED_STABLE` | 1M each | Your real LP equity (the inventory). |
 | `LTV_STABLE_*` | 0.95 / 0.96 | Stable-vs-stable; drives the loop & cross. |
-| `LTV_VOL_*` | 0.80 / 0.85 | BTC / ETH → stables, stables → WETH. |
-| `LTV_BTC_ETH_*` | 0.78 / 0.83 | BTC → WETH (cross-volatile). |
+| `LTV_VOL_*` | 0.80 / 0.85 | Any cross between unlike tiers (vol↔stable, vol↔vol). |
+| `LTV_SELF_*` | 0.90 / 0.92 | Same vol tier: WETH→WETH, BTC→BTC (correlated). |
 | `LTV_LST_ETH_*` | 0.94 / 0.95 | wstETH / cbETH → WETH (high, correlated). |
 | `LTV_LST_STABLE_*` | 0.85 / 0.87 | wstETH / cbETH → stables. |
 | `IRM_*` (adaptive curve) | 4% APR @ 90% target | Reactive — self-adjusts toward target utilization (no governance). Canonical values; review per market. |

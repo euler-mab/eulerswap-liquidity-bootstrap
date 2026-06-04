@@ -10,12 +10,14 @@ Three tabs:
   escrows are outlined, and the two EulerSwap inventory legs (USDC + the stable) are ringed.
 - **Matrix** — the full collateral × borrowable LTV grid (borrow / liquidation), i.e. the 31
   pairs wired by `_ltvs()`.
-- **Pool** — paste an RPC + the deployed pool address here to load live reserves and the
-  **liquidity depth** chart: cumulative dollars vs execution price, centred on the $1 peg
-  (a sleeker take on a Uniswap depth chart — green sells, red buys, the swap fee as the spread).
+- **Pool** — the **liquidity depth** chart: cumulative dollars vs execution price, centred on
+  the $1 peg (a sleeker take on a Uniswap depth chart — green sells, red buys, the swap fee as
+  the spread). Defaults to a **simulated** pool (EulerSwap's own `CurveLib.f`, evaluated in $
+  terms for the $1:$1 pair) with **concentration / fee sliders** so you can build intuition with
+  no connection. Flip the toggle to **Live pool** to point it at a deployed pool over RPC.
 
-The **Graph and Matrix render offline** from the market structure; only the **Pool** tab needs
-a connection.
+Everything **renders offline** — the Graph, the Matrix, and the simulated depth chart. Only the
+**Live pool** option needs a connection.
 
 No build, no server, no `node_modules` — [`index.html`](index.html) pulls `viem` from a CDN
 and runs entirely in the browser. Light theme, read-only: it never sends a transaction.
