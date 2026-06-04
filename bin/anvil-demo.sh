@@ -35,11 +35,15 @@ echo "the whole mini market: ungoverned vaults, oracles, collateral matrix, pair
 echo "EulerSwap pool, and verifies a real swap moves inventory through the escrows."
 echo
 
-# The fork tests call vm.createSelectFork(vm.envString("MAINNET_RPC_URL")), so they fork
-# from the ENV VAR, not --fork-url. Point MAINNET_RPC_URL at anvil so they actually run
-# against the local fork (caching, no remote rate limits) instead of the remote RPC.
-MAINNET_RPC_URL="http://localhost:$ANVIL_PORT" forge test \
+# Run the fork tests against the local anvil fork. Set BOTH so either test style hits it:
+#   - MAINNET_RPC_URL=anvil  → tests that vm.createSelectFork(vm.envString("MAINNET_RPC_URL"))
+#     fork from the ENV VAR (this repo's style); --fork-url alone is silently ignored by them
+#   - --fork-url=anvil       → tests that rely on forge's default fork (no createSelectFork)
+# This repo only uses the first, but setting both is robust and matches the template pattern.
+MAINNET_RPC_URL="http://localhost:$ANVIL_PORT" \
+  forge test \
   --match-path "test/*.fork.t.sol" \
+  --fork-url "http://localhost:$ANVIL_PORT" \
   -vv
 
 echo

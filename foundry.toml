@@ -13,5 +13,7 @@ evm_version = "cancun"
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 
-[etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" }
+# No [etherscan] block on purpose: forge eagerly resolves ${ETHERSCAN_API_KEY} whenever
+# --fork-url is on the CLI (make fork-test / make demo), so a keyless clone would fail with
+# "environment variable not found". No documented flow here verifies. To verify a broadcast,
+# pass the key explicitly: forge script ... --broadcast --verify --etherscan-api-key $KEY
