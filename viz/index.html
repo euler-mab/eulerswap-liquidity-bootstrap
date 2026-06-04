@@ -6,8 +6,8 @@
 <title>Bootstrap market visualizer</title>
 <style>
   :root {
-    --bg: #0a0a0a; --panel: #101010; --panel2: #161616; --line: #242424;
-    --ink: #ededed; --ink2: #c8c8c8; --dim: #7a7a7a; --faint: #555;
+    --bg: #ffffff; --panel: #ffffff; --panel2: #f6f7f9; --line: #e6e8ec; --line2: #eef0f3;
+    --ink: #15161a; --ink2: #3d4350; --dim: #6b7280; --faint: #aeb4be;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   }
@@ -15,69 +15,80 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
          line-height: 1.5; -webkit-font-smoothing: antialiased; }
   header { padding: 28px 24px 22px; border-bottom: 1px solid var(--line); }
-  h1 { font-size: 16px; font-weight: 600; margin: 0 0 6px; letter-spacing: -.01em; }
-  .sub { color: var(--dim); font-size: 13px; max-width: 70ch; }
+  h1 { font-size: 16px; font-weight: 650; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--dim); font-size: 13px; max-width: 74ch; }
   .sub code { color: var(--ink2); }
   main { max-width: 1040px; margin: 0 auto; padding: 24px; display: grid; gap: 16px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
-  .card h2 { font-size: 11px; margin: 0 0 16px; color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+  .card h2 { font-size: 11px; margin: 0 0 16px; color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-weight: 650; }
+  .cardhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .cardhead h2 { margin: 0; }
   form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   label { display: block; font-size: 11px; color: var(--dim); margin-bottom: 5px; letter-spacing: .02em; }
   input { width: 100%; padding: 9px 11px; background: var(--panel2); border: 1px solid var(--line);
-          border-radius: 6px; color: var(--ink); font-family: var(--mono); font-size: 12px; }
-  input:focus { outline: none; border-color: var(--faint); }
+          border-radius: 7px; color: var(--ink); font-family: var(--mono); font-size: 12px; }
+  input:focus { outline: none; border-color: var(--faint); background: #fff; }
   .row { grid-column: 1 / -1; display: flex; gap: 14px; align-items: center; }
-  button { padding: 9px 18px; background: var(--ink); color: var(--bg); border: 0; border-radius: 6px;
+  button { padding: 9px 18px; background: var(--ink); color: #fff; border: 0; border-radius: 7px;
            font-weight: 600; cursor: pointer; font-size: 12px; letter-spacing: .02em; }
-  button:hover:not(:disabled) { background: #fff; }
+  button:hover:not(:disabled) { background: #000; }
   button:disabled { opacity: .4; cursor: default; }
   .status { font-family: var(--mono); font-size: 11px; color: var(--dim); }
-  .status.err { color: var(--ink); }
-  .status.ok { color: var(--ink2); }
-  /* architecture */
-  .arch { display: grid; gap: 14px; }
-  .tier { display: grid; grid-template-columns: 140px 1fr; gap: 14px; align-items: start; }
-  .tier .name { font-size: 11px; color: var(--dim); padding-top: 7px; text-transform: uppercase; letter-spacing: .06em; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip { font-family: var(--mono); font-size: 12px; padding: 7px 11px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink2); }
-  .chip.borrow { background: var(--panel2); border-color: var(--faint); color: var(--ink); }
-  .chip.escrow { background: transparent; }
-  .chip.inv { border-color: var(--ink); color: var(--ink); }
-  .chip.inv::after { content: '●'; font-size: 7px; vertical-align: middle; margin-left: 7px; color: var(--ink); }
-  .chip .meta { color: var(--dim); font-size: 10px; display: block; margin-top: 2px; }
-  .pool { border: 1px dashed var(--faint); text-align: center; padding: 13px; border-radius: 8px;
-          font-family: var(--mono); font-size: 12px; color: var(--ink2); margin-top: 2px; }
-  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 11px; color: var(--dim); margin-top: 4px; }
-  .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
-  .sw-borrow { background: var(--panel2); border: 1px solid var(--faint); }
-  .sw-escrow { background: transparent; border: 1px solid var(--line); }
-  .sw-inv { background: transparent; border: 1px solid var(--ink); }
-  /* stats */
+  .status.err { color: #b42318; }
+  .status.ok { color: #157347; }
+  /* tabs */
+  .tabs { display: inline-flex; gap: 2px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .tab { padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--dim); background: transparent;
+         border: 0; border-radius: 6px; cursor: pointer; letter-spacing: .01em; }
+  .tab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .summary { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 18px; }
+  .summary .k { font-size: 11px; color: var(--dim); }
+  .summary .v { font-family: var(--mono); font-size: 16px; margin-top: 2px; }
+  /* graph */
+  #graph { width: 100%; height: auto; display: block; }
+  .node-label { font-family: var(--sans); font-size: 12px; font-weight: 600; fill: var(--ink); }
+  .node-sub { font-family: var(--mono); font-size: 9px; fill: var(--dim); }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 11px; color: var(--dim); margin-top: 8px; align-items: center; }
+  .legend b { color: var(--ink2); font-weight: 600; }
+  .swatch { display: inline-block; width: 13px; height: 13px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .sw-borrow { background: var(--ink); }
+  .sw-coll { background: #fff; border: 1.5px solid var(--faint); }
+  .sw-inv { background: #fff; border: 2px solid var(--ink); }
+  /* matrix */
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  th, td { padding: 9px 10px; text-align: center; border: 1px solid var(--line2); }
+  th { color: var(--dim); font-weight: 600; background: var(--panel2); }
+  th.corner { text-align: left; color: var(--ink2); }
+  td.rowh { text-align: left; color: var(--ink2); background: var(--panel2); font-weight: 600; }
+  td .ltv { color: var(--ink); } td .liq { color: var(--dim); font-size: 10px; display: block; }
+  td.empty { color: var(--faint); }
+  .matnote { color: var(--dim); font-size: 12px; margin-top: 12px; max-width: 80ch; }
+  /* live + depth */
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-  .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 13px; }
+  .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 13px; }
   .stat .k { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
   .stat .v { font-family: var(--mono); font-size: 17px; margin-top: 5px; color: var(--ink); }
   .stat .v small { font-size: 11px; color: var(--dim); }
-  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; margin-top: 6px; }
-  th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); }
-  th:first-child, td:first-child { text-align: left; }
-  th { color: var(--dim); font-weight: 500; }
-  td { color: var(--ink2); }
-  .muted { color: var(--dim); font-size: 12px; max-width: 78ch; }
+  #depthTable { margin-top: 6px; }
+  #depthTable th, #depthTable td { text-align: right; border: 0; border-bottom: 1px solid var(--line2); padding: 7px 8px; }
+  #depthTable th:first-child, #depthTable td:first-child { text-align: left; }
+  #depthTable td { color: var(--ink2); }
+  .muted { color: var(--dim); font-size: 12px; max-width: 80ch; }
   code { color: var(--ink2); }
-  svg text { fill: var(--dim); font-family: var(--mono); font-size: 10px; }
+  svg text.axis { fill: var(--dim); font-family: var(--mono); font-size: 10px; }
 </style>
 </head>
 <body>
 <header>
   <h1>EulerSwap bootstrap market — visualizer</h1>
-  <div class="sub">Reads a deployed market over RPC and renders the ring-fenced architecture and the swap depth curve.
-  Self-contained: no build, no server. See <code>viz/README.md</code>.</div>
+  <div class="sub">A read-only view of the ungoverned mini market and the EulerSwap pool that bootstraps it.
+  The market structure renders offline; connect an RPC + the deployed pool for live reserves and the depth curve.
+  Self-contained — no build, no server. See <code>viz/README.md</code>.</div>
 </header>
 
 <main>
   <section class="card">
-    <h2>Connection</h2>
+    <h2>Connection <span style="color:var(--faint);text-transform:none;letter-spacing:0;font-weight:400">(optional — for live data)</span></h2>
     <form id="cfg">
       <div>
         <label>RPC URL (mainnet)</label>
@@ -96,116 +107,183 @@
         <input id="tokenB" value="0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD" />
       </div>
       <div class="row">
-        <button type="submit" id="go">Load market</button>
-        <span class="status" id="status">Enter an RPC + a deployed pool address, then Load. (Architecture below renders without a connection.)</span>
+        <button type="submit" id="go">Load live data</button>
+        <span class="status" id="status">Optional. The market map below works without a connection.</span>
       </div>
     </form>
   </section>
 
   <section class="card">
-    <h2>Market architecture</h2>
-    <div class="arch" id="arch"></div>
-    <div class="pool" id="poolBox">EulerSwap pool — supply = stable escrows (ring-fenced inventory) · debt = borrowable vaults</div>
-    <div class="legend">
-      <span><span class="swatch sw-borrow"></span>borrowable (controller, own IRM)</span>
-      <span><span class="swatch sw-escrow"></span>collateral-only escrow (cannot be borrowed out)</span>
-      <span><span class="swatch sw-inv"></span>swap inventory (USDC + stable)</span>
+    <div class="cardhead">
+      <h2>The market</h2>
+      <div class="tabs">
+        <button class="tab active" data-view="graph" id="tabGraph">Graph</button>
+        <button class="tab" data-view="matrix" id="tabMatrix">Matrix</button>
+      </div>
     </div>
-    <p class="muted" id="archNote"></p>
+    <div class="summary" id="summary"></div>
+    <div id="viewGraph">
+      <svg id="graph" viewBox="0 0 760 540" role="img" aria-label="market graph"></svg>
+      <div class="legend">
+        <span><span class="swatch sw-borrow"></span><b>borrowable</b> (controller, own IRM)</span>
+        <span><span class="swatch sw-coll"></span><b>collateral-only</b> escrow</span>
+        <span><span class="swatch sw-inv"></span><b>swap inventory</b> (the EulerSwap pair)</span>
+        <span style="margin-left:auto">click an asset to isolate its edges</span>
+      </div>
+    </div>
+    <div id="viewMatrix" hidden>
+      <table id="matrix"></table>
+      <p class="matnote">Borrow / liquidation LTV for each <b>collateral → borrowable</b> pair (1e4 = 100%). The stable
+      diagonal (e.g. USDC→USDC) is the leverage loop; off-diagonal stables are the cross. 31 pairs total — exactly
+      the set wired by <code>_ltvs()</code> in <code>BootstrapMarketBase.sol</code>.</p>
+    </div>
   </section>
 
   <section class="card" id="liveCard" hidden>
     <h2>Live pool state</h2>
-    <div class="stats" id="stats"></div>
+    <div class="stats" id="liveStats"></div>
   </section>
 
-  <section class="card" id="curveCard" hidden>
+  <section class="card" id="depthCard" hidden>
     <h2>Liquidity depth — dollars available vs execution price</h2>
     <svg id="chart" viewBox="0 0 1000 340" width="100%" height="340"></svg>
-    <table id="curveTable"></table>
+    <table id="depthTable"></table>
     <p class="muted">Cumulative dollars tradable as a function of the marginal execution price, centred on the
     $1 peg. The left arm sells the stable for USDC (price &lt; 1); the right arm buys it (price &gt; 1). Concentration
     ≈ 1 stacks almost all depth within a hair of $1; the curve tops out at the seeded inventory because this template
-    is unleveraged (it draws inventory down to the equilibrium reserves and does not borrow).</p>
+    is unleveraged.</p>
   </section>
 </main>
 
 <script type="module">
 import { createPublicClient, http, getAddress } from 'https://esm.sh/viem@2';
 
-// ── Market config: mirrors script/BootstrapMarketBase.sol (default RLUSD market) ──
-const ARCH = {
-  borrowable: [
-    { sym: 'USDC', meta: '4% IRM' }, { sym: 'USDT', meta: '4% IRM' },
-    { sym: 'RLUSD', meta: '4% IRM · bootstrapped' }, { sym: 'WETH', meta: '2.5% IRM' },
-  ],
-  escrow: [
-    { sym: 'USDC', inv: true }, { sym: 'RLUSD', inv: true }, { sym: 'USDT' },
-    { sym: 'cbBTC' }, { sym: 'WBTC' }, { sym: 'WETH' }, { sym: 'wstETH' }, { sym: 'cbETH' },
-  ],
-  ltvTiers: [
-    ['stable ↔ stable', '0.95 / 0.96'],
-    ['BTC·ETH → stable, stable → WETH', '0.80 / 0.85'],
-    ['BTC → WETH', '0.78 / 0.83'],
-    ['LST → stable', '0.85 / 0.87'],
-    ['LST → WETH (correlated)', '0.94 / 0.95'],
-  ],
-};
+// ── Market structure: mirrors script/BootstrapMarketBase.sol (default RLUSD market) ──
+const STABLES = ['USDC', 'USDT', 'RLUSD'];
+const NODES = [
+  // order around the ring; `borrow` = has a borrowable controller vault; `inv` = EulerSwap inventory leg
+  { sym: 'RLUSD', borrow: true, inv: true, note: 'bootstrapped' },
+  { sym: 'USDC', borrow: true, inv: true },
+  { sym: 'USDT', borrow: true },
+  { sym: 'WBTC' }, { sym: 'cbBTC' },
+  { sym: 'WETH', borrow: true },
+  { sym: 'wstETH' }, { sym: 'cbETH' },
+];
+// collateral → borrowable edges with [borrowLTV, liqLTV], reproducing _ltvs() (31 pairs)
+function buildEdges() {
+  const E = [], add = (c, b, bl, ll) => E.push({ c, b, bl, ll });
+  for (const c of STABLES) { for (const b of STABLES) add(c, b, 0.95, 0.96); add(c, 'WETH', 0.80, 0.85); }
+  for (const c of ['cbBTC', 'WBTC']) { for (const b of STABLES) add(c, b, 0.80, 0.85); add(c, 'WETH', 0.78, 0.83); }
+  for (const b of STABLES) add('WETH', b, 0.80, 0.85);
+  for (const c of ['wstETH', 'cbETH']) { for (const b of STABLES) add(c, b, 0.85, 0.87); add(c, 'WETH', 0.94, 0.95); }
+  return E;
+}
+const EDGES = buildEdges();
+const BORROWABLE = NODES.filter(n => n.borrow).map(n => n.sym);
 
 // ── ABIs (minimal) ──
 const POOL_ABI = [
-  { name: 'getReserves', stateMutability: 'view', inputs: [], outputs: [
-    { type: 'uint112' }, { type: 'uint112' }, { type: 'uint32' } ] },
-  { name: 'computeQuote', stateMutability: 'view', inputs: [
-    { type: 'address' }, { type: 'address' }, { type: 'uint256' }, { type: 'bool' } ],
-    outputs: [ { type: 'uint256' } ] },
-  { name: 'getDynamicParams', stateMutability: 'view', inputs: [], outputs: [ { type: 'tuple', components: [
+  { name: 'getReserves', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint112' }, { type: 'uint112' }, { type: 'uint32' }] },
+  { name: 'computeQuote', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }, { type: 'bool' }], outputs: [{ type: 'uint256' }] },
+  { name: 'getDynamicParams', stateMutability: 'view', inputs: [], outputs: [{ type: 'tuple', components: [
     { name: 'equilibriumReserve0', type: 'uint112' }, { name: 'equilibriumReserve1', type: 'uint112' },
     { name: 'minReserve0', type: 'uint112' }, { name: 'minReserve1', type: 'uint112' },
     { name: 'priceX', type: 'uint80' }, { name: 'priceY', type: 'uint80' },
     { name: 'concentrationX', type: 'uint64' }, { name: 'concentrationY', type: 'uint64' },
     { name: 'fee0', type: 'uint64' }, { name: 'fee1', type: 'uint64' },
-    { name: 'expiration', type: 'uint40' }, { name: 'swapHookedOperations', type: 'uint8' },
-    { name: 'swapHook', type: 'address' } ] } ] },
+    { name: 'expiration', type: 'uint40' }, { name: 'swapHookedOperations', type: 'uint8' }, { name: 'swapHook', type: 'address' } ] }] },
 ];
 const ERC20_ABI = [
   { name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
   { name: 'symbol', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
 ];
 
-// ── Render the static architecture ──
-function chip(t, cls) {
-  return `<span class="chip ${cls} ${t.inv ? 'inv' : ''}">${t.sym}${t.meta ? `<span class="meta">${t.meta}</span>` : ''}</span>`;
-}
-function renderArch() {
-  const tiers = [
-    `<div class="tier"><span class="name">Borrowable</span><div class="chips">${ARCH.borrowable.map(t => chip(t, 'borrow')).join('')}</div></div>`,
-    `<div class="tier"><span class="name">Escrow collateral</span><div class="chips">${ARCH.escrow.map(t => chip(t, 'escrow')).join('')}</div></div>`,
-    `<div class="tier"><span class="name">LTV tiers (B / L)</span><div class="chips">${
-      ARCH.ltvTiers.map(([n, v]) => `<span class="chip" style="border-style:dashed">${n}<span class="meta">${v}</span></span>`).join('')
-    }</div></div>`,
-  ];
-  document.getElementById('arch').innerHTML = tiers.join('');
-  document.getElementById('archNote').textContent =
-    'Static view from BootstrapMarketBase defaults: 4 borrowable controllers + 8 collateral-only escrows, all ungoverned/immutable. Swap inventory (outlined) is ring-fenced in the escrows.';
-}
-renderArch();
-
 // ── helpers ──
 const fmt = (x, d = 2) => Number(x).toLocaleString(undefined, { maximumFractionDigits: d });
 const pow10 = (n) => 10 ** Number(n);
-function setStatus(msg, cls = '') { const s = document.getElementById('status'); s.textContent = msg; s.className = 'status ' + cls; }
+const money = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(0) + 'k' : '$' + fmt(v, 0);
+const setStatus = (m, c = '') => { const s = document.getElementById('status'); s.textContent = m; s.className = 'status ' + c; };
 
-// ── Load + render live data ──
+// ── summary strip ──
+document.getElementById('summary').innerHTML = [
+  ['Assets', NODES.length], ['Borrowable', BORROWABLE.length],
+  ['Escrows', NODES.length], ['LTV pairs', EDGES.length],
+  ['EulerSwap pair', 'USDC / RLUSD'], ['Status', 'ungoverned · immutable'],
+].map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+// ── GRAPH ──
+const GW = 760, GH = 540, GCx = 380, GCy = 250, GR = 175;
+const pos = {};
+NODES.forEach((n, i) => {
+  const a = -Math.PI / 2 + (i / NODES.length) * 2 * Math.PI;
+  pos[n.sym] = { x: GCx + GR * Math.cos(a), y: GCy + GR * Math.sin(a), a };
+});
+function renderGraph(sel = null) {
+  const isOn = (e) => !sel || e.c === sel || e.b === sel;
+  // edges first (under nodes); self-pairs drawn as a small loop at the node
+  const edges = EDGES.map(e => {
+    const on = isOn(e), col = on ? '#15161a' : '#e6e8ec', w = on ? (0.6 + e.bl * 1.8) : 0.8, op = on ? (sel ? 0.9 : 0.32) : 0.5;
+    if (e.c === e.b) {
+      const p = pos[e.c], dx = (p.x - GCx), dy = (p.y - GCy), len = Math.hypot(dx, dy) || 1;
+      const ox = p.x + (dx / len) * 26, oy = p.y + (dy / len) * 26;
+      return `<circle cx="${ox.toFixed(1)}" cy="${oy.toFixed(1)}" r="10" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}" />`;
+    }
+    const a = pos[e.c], b = pos[e.b];
+    return `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${col}" stroke-width="${w}" opacity="${op}" />`;
+  }).join('');
+  const nodes = NODES.map(n => {
+    const p = pos[n.sym], dim = sel && n.sym !== sel && !EDGES.some(e => isOn(e) && (e.c === n.sym || e.b === n.sym));
+    const fill = n.borrow ? '#15161a' : '#ffffff', stroke = n.inv ? '#15161a' : (n.borrow ? '#15161a' : '#aeb4be');
+    const sw = n.inv ? 2.4 : 1.4, txt = n.borrow ? '#ffffff' : '#15161a';
+    const labelY = p.y < GCy ? p.y - 34 : p.y + 42;
+    return `<g opacity="${dim ? 0.28 : 1}" style="cursor:pointer" data-sym="${n.sym}">`
+      + `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="24" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />`
+      + `<text class="node-sub" x="${p.x.toFixed(1)}" y="${(p.y + 4).toFixed(1)}" text-anchor="middle" fill="${txt}" style="font-size:10px;font-weight:600">${n.sym.length > 5 ? n.sym.slice(0, 5) : n.sym}</text>`
+      + `<text class="node-label" x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">${n.sym}</text>`
+      + (n.note ? `<text class="node-sub" x="${p.x.toFixed(1)}" y="${(labelY + 12).toFixed(1)}" text-anchor="middle">${n.note}</text>` : '')
+      + `</g>`;
+  }).join('');
+  const center = `<text x="${GCx}" y="${GCy - 6}" text-anchor="middle" class="node-sub" style="font-size:11px">EulerSwap</text>`
+    + `<text x="${GCx}" y="${GCy + 9}" text-anchor="middle" class="node-sub" style="font-size:11px">USDC / RLUSD</text>`;
+  const g = document.getElementById('graph');
+  g.innerHTML = edges + nodes + center;
+  g.querySelectorAll('g[data-sym]').forEach(el =>
+    el.addEventListener('click', () => renderGraph(el.dataset.sym === sel ? null : el.dataset.sym)));
+}
+renderGraph();
+
+// ── MATRIX ──
+function renderMatrix() {
+  const cols = BORROWABLE, rows = NODES.map(n => n.sym);
+  const cell = (c, b) => {
+    const e = EDGES.find(x => x.c === c && x.b === b);
+    if (!e) return `<td class="empty">·</td>`;
+    const L = (96 - (e.bl - 0.75) * 90).toFixed(0); // higher LTV = subtly darker
+    return `<td style="background:hsl(0 0% ${L}%)"><span class="ltv">${e.bl.toFixed(2)}</span><span class="liq">${e.ll.toFixed(2)}</span></td>`;
+  };
+  document.getElementById('matrix').innerHTML =
+    `<tr><th class="corner">collateral ↓ / borrow →</th>${cols.map(c => `<th>${c}</th>`).join('')}</tr>`
+    + rows.map(r => `<tr><td class="rowh">${r}</td>${cols.map(c => cell(r, c)).join('')}</tr>`).join('');
+}
+renderMatrix();
+
+// ── tab switching ──
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  const v = t.dataset.view;
+  document.getElementById('viewGraph').hidden = v !== 'graph';
+  document.getElementById('viewMatrix').hidden = v !== 'matrix';
+}));
+
+// ── live data + depth curve ──
 document.getElementById('cfg').addEventListener('submit', async (e) => {
   e.preventDefault();
   const rpc = document.getElementById('rpc').value.trim();
   const poolRaw = document.getElementById('pool').value.trim();
-  if (!rpc || !poolRaw) { setStatus('RPC URL and pool address are both required.', 'err'); return; }
+  if (!rpc || !poolRaw) { setStatus('RPC URL and pool address are both required for live data.', 'err'); return; }
   let pool, tokenA, tokenB;
   try {
-    pool = getAddress(poolRaw);
-    tokenA = getAddress(document.getElementById('tokenA').value.trim());
+    pool = getAddress(poolRaw); tokenA = getAddress(document.getElementById('tokenA').value.trim());
     tokenB = getAddress(document.getElementById('tokenB').value.trim());
   } catch { setStatus('One of the addresses is malformed.', 'err'); return; }
 
@@ -219,136 +297,85 @@ document.getElementById('cfg').addEventListener('submit', async (e) => {
       client.readContract({ address: tokenA, abi: ERC20_ABI, functionName: 'symbol' }).catch(() => 'TKN-A'),
       client.readContract({ address: tokenB, abi: ERC20_ABI, functionName: 'symbol' }).catch(() => 'TKN-B'),
     ]);
-
     const [reserves, params] = await Promise.all([
       client.readContract({ address: pool, abi: POOL_ABI, functionName: 'getReserves' }),
       client.readContract({ address: pool, abi: POOL_ABI, functionName: 'getDynamicParams' }),
     ]);
-
-    // token0 = lower address (EulerSwap convention)
     const aIs0 = BigInt(tokenA) < BigInt(tokenB);
-    const dec0 = aIs0 ? decA : decB, dec1 = aIs0 ? decB : decA;
-    const sym0 = aIs0 ? symA : symB, sym1 = aIs0 ? symB : symA;
+    const dec0 = aIs0 ? decA : decB, dec1 = aIs0 ? decB : decA, sym0 = aIs0 ? symA : symB, sym1 = aIs0 ? symB : symA;
     const r0 = Number(reserves[0]) / pow10(dec0), r1 = Number(reserves[1]) / pow10(dec1);
     const eq0 = Number(params.equilibriumReserve0) / pow10(dec0), eq1 = Number(params.equilibriumReserve1) / pow10(dec1);
-    const feeBps = Number(params.fee0) / 1e14; // 1e14 = 1 bps
-    const conc = Number(params.concentrationX) / 1e18;
+    const feeBps = Number(params.fee0) / 1e14, conc = Number(params.concentrationX) / 1e18;
 
-    document.getElementById('stats').innerHTML = [
+    document.getElementById('liveStats').innerHTML = [
       ['Reserve ' + sym0, fmt(r0, 0)], ['Reserve ' + sym1, fmt(r1, 0)],
       ['Equilibrium ' + sym0, fmt(eq0, 0)], ['Equilibrium ' + sym1, fmt(eq1, 0)],
-      ['Swap fee', feeBps.toFixed(2) + ' <small>bps</small>'],
-      ['Concentration', conc.toFixed(4)],
+      ['Swap fee', feeBps.toFixed(2) + ' <small>bps</small>'], ['Concentration', conc.toFixed(4)],
     ].map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
     document.getElementById('liveCard').hidden = false;
 
-    // ── build the depth curve: marginal price vs cumulative $, both directions ──
-    // Price is quoted as "stable per USDC". The pool stays near 1; we finite-difference
-    // computeQuote across growing trade sizes to recover the marginal price at each
-    // cumulative dollar amount. Left arm = sell stable (price < 1), right = buy (price > 1).
     setStatus('Sampling depth curve…');
-    const fracs = [0.01, 0.02, 0.04, 0.06, 0.09, 0.12, 0.16, 0.2, 0.27, 0.34, 0.42,
-                   0.5, 0.58, 0.66, 0.74, 0.8, 0.85, 0.9, 0.93, 0.95, 0.97, 0.98, 0.99, 0.995];
-    const baseUSDC = aIs0 ? eq0 : eq1; // human USDC equilibrium
-    const baseStable = aIs0 ? eq1 : eq0; // human stable equilibrium
-
-    // quote helper, normalized to human units
-    const quote = async (tIn, tOut, amtHuman, decIn, decOut) => {
-      const amt = BigInt(Math.floor(amtHuman * pow10(decIn)));
-      if (amt === 0n) return null;
-      try {
-        const out = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'computeQuote', args: [tIn, tOut, amt, true] });
-        return Number(out) / pow10(decOut);
-      } catch { return null; }
+    const fracs = [0.01, 0.02, 0.04, 0.06, 0.09, 0.12, 0.16, 0.2, 0.27, 0.34, 0.42, 0.5, 0.58, 0.66, 0.74, 0.8, 0.85, 0.9, 0.93, 0.95, 0.97, 0.98, 0.99, 0.995];
+    const baseUSDC = aIs0 ? eq0 : eq1, baseStable = aIs0 ? eq1 : eq0;
+    const quote = async (tIn, tOut, amtHuman, dIn, dOut) => {
+      const amt = BigInt(Math.floor(amtHuman * pow10(dIn))); if (amt === 0n) return null;
+      try { const out = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'computeQuote', args: [tIn, tOut, amt, true] }); return Number(out) / pow10(dOut); }
+      catch { return null; }
     };
-
-    // sweep one direction, returning [{ price = USDC per stable, cum$ }] ordered out from peg.
-    // sell=true: sell stable for USDC (price < 1, left). sell=false: buy stable (price > 1, right).
     const sweep = async (sell) => {
-      const arm = []; let prevIn = 0, prevOut = 0;
+      const arm = []; let pIn = 0, pOut = 0;
       for (const f of fracs) {
         const inHuman = (sell ? baseStable : baseUSDC) * f;
-        const out = sell
-          ? await quote(tokenB, tokenA, inHuman, decB, decA)  // stable -> USDC
-          : await quote(tokenA, tokenB, inHuman, decA, decB); // USDC -> stable
+        const out = sell ? await quote(tokenB, tokenA, inHuman, decB, decA) : await quote(tokenA, tokenB, inHuman, decA, decB);
         if (out == null) continue;
-        const dIn = inHuman - prevIn, dOut = out - prevOut;
-        prevIn = inHuman; prevOut = out;
+        const dIn = inHuman - pIn, dOut = out - pOut; pIn = inHuman; pOut = out;
         if (dIn <= 0 || dOut <= 0) continue;
-        // price = USDC per stable: sell gives USDC/stable directly; buy is USDC-in/stable-out.
-        const price = sell ? (dOut / dIn) : (dIn / dOut);
-        arm.push({ price, cum: inHuman }); // cum in $ (both legs ≈ $1)
+        arm.push({ price: sell ? (dOut / dIn) : (dIn / dOut), cum: inHuman });
       }
       return arm;
     };
-    const sellArm = await sweep(true);   // price < 1 (left)
-    const buyArm = await sweep(false);   // price > 1 (right)
-
-    renderDepth(sellArm, buyArm, symA, symB);
-    document.getElementById('curveCard').hidden = false;
+    renderDepth(await sweep(true), await sweep(false), symA, symB);
+    document.getElementById('depthCard').hidden = false;
     setStatus(`Loaded. Pool pairs ${sym0}/${sym1}; token0 = ${sym0}.`, 'ok');
   } catch (err) {
-    console.error(err);
-    setStatus('Read failed: ' + (err?.shortMessage || err?.message || String(err)), 'err');
-  } finally {
-    document.getElementById('go').disabled = false;
-  }
+    console.error(err); setStatus('Read failed: ' + (err?.shortMessage || err?.message || String(err)), 'err');
+  } finally { document.getElementById('go').disabled = false; }
 });
-
-const money = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(0) + 'k' : '$' + fmt(v, 0);
 
 // Liquidity depth chart: x = execution price (USDC per stable) centred on 1, y = cumulative $.
 function renderDepth(sellArm, buyArm, symA, symB) {
   const all = [...sellArm, ...buyArm];
-  if (!all.length) { document.getElementById('chart').innerHTML = `<text x="20" y="30">No quotes returned.</text>`; return; }
-  const dev = (p) => (p - 1) * 1e4; // bps from peg
+  if (!all.length) { document.getElementById('chart').innerHTML = `<text class="axis" x="20" y="30">No quotes returned.</text>`; return; }
+  const dev = (p) => (p - 1) * 1e4;
   const maxDev = Math.min(40, Math.max(2, Math.ceil(Math.max(...all.map(a => Math.abs(dev(a.price)))))));
   const yMax = Math.max(...all.map(a => a.cum));
-
-  const W = 1000, H = 340, padL = 64, padR = 18, padT = 18, padB = 46;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const W = 1000, H = 340, padL = 64, padR = 18, padT = 18, padB = 46, plotW = W - padL - padR, plotH = H - padT - padB;
   const X = (d) => padL + (Math.max(-maxDev, Math.min(maxDev, d)) + maxDev) / (2 * maxDev) * plotW;
   const Y = (c) => H - padB - (c / yMax) * plotH;
-
-  // area path: from peg baseline, out through the arm (sorted by |dev|), back to baseline.
   const area = (arm) => {
     const pts = [...arm].sort((a, b) => Math.abs(dev(a.price)) - Math.abs(dev(b.price)));
     if (!pts.length) return '';
     let d = `M ${X(0)} ${Y(0)}`;
     for (const p of pts) d += ` L ${X(dev(p.price))} ${Y(p.cum)}`;
-    const last = pts[pts.length - 1];
-    d += ` L ${X(dev(last.price))} ${Y(0)} Z`;
-    return `<path d="${d}" fill="rgba(237,237,237,0.10)" stroke="#ededed" stroke-width="1.5" />`;
+    d += ` L ${X(dev(pts[pts.length - 1].price))} ${Y(0)} Z`;
+    return `<path d="${d}" fill="rgba(21,22,26,0.07)" stroke="#15161a" stroke-width="1.5" />`;
   };
-
-  // gridlines + ticks
-  const yt = [0.25, 0.5, 0.75, 1].map(f => f * yMax);
-  const xt = [-maxDev, -maxDev / 2, 0, maxDev / 2, maxDev];
-  const grid = `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}" stroke="#242424"/>`
-    + `<line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="#242424"/>`
-    + yt.map(v => `<line x1="${padL}" y1="${Y(v)}" x2="${W - padR}" y2="${Y(v)}" stroke="#1a1a1a"/>`
-        + `<text x="${padL - 8}" y="${Y(v) + 3}" text-anchor="end">${money(v)}</text>`).join('')
-    + xt.map(d => `<text x="${X(d)}" y="${H - padB + 15}" text-anchor="middle">${(1 + d / 1e4).toFixed(4)}</text>`
-        + `<text x="${X(d)}" y="${H - padB + 28}" text-anchor="middle" fill="#555">${d > 0 ? '+' : ''}${d.toFixed(0)}bp</text>`).join('');
-  // peg marker
-  const peg = `<line x1="${X(0)}" y1="${padT}" x2="${X(0)}" y2="${H - padB}" stroke="#3a3a3a" stroke-dasharray="2 3"/>`
-    + `<text x="${X(0)}" y="${padT - 4}" text-anchor="middle" fill="#9a9a9a">$1.00 peg</text>`;
-
+  const yt = [0.25, 0.5, 0.75, 1].map(f => f * yMax), xt = [-maxDev, -maxDev / 2, 0, maxDev / 2, maxDev];
+  const grid = `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}" stroke="#e6e8ec"/>`
+    + `<line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="#e6e8ec"/>`
+    + yt.map(v => `<line x1="${padL}" y1="${Y(v)}" x2="${W - padR}" y2="${Y(v)}" stroke="#f0f1f4"/><text class="axis" x="${padL - 8}" y="${Y(v) + 3}" text-anchor="end">${money(v)}</text>`).join('')
+    + xt.map(d => `<text class="axis" x="${X(d)}" y="${H - padB + 15}" text-anchor="middle">${(1 + d / 1e4).toFixed(4)}</text><text class="axis" x="${X(d)}" y="${H - padB + 28}" text-anchor="middle" fill="#aeb4be">${d > 0 ? '+' : ''}${d.toFixed(0)}bp</text>`).join('');
+  const peg = `<line x1="${X(0)}" y1="${padT}" x2="${X(0)}" y2="${H - padB}" stroke="#c9ccd2" stroke-dasharray="2 3"/><text class="axis" x="${X(0)}" y="${padT - 4}" text-anchor="middle" fill="#6b7280">$1.00 peg</text>`;
   document.getElementById('chart').innerHTML = grid + peg + area(sellArm) + area(buyArm)
-    + `<text x="${padL}" y="12">depth ($, cumulative)</text>`
-    + `<text x="${(padL + X(0)) / 2}" y="${H - 6}" text-anchor="middle" fill="#9a9a9a">← sell ${symB} for ${symA}</text>`
-    + `<text x="${(X(0) + W - padR) / 2}" y="${H - 6}" text-anchor="middle" fill="#9a9a9a">buy ${symB} with ${symA} →</text>`;
-
-  // summary table: depth available within N bp of the peg, each side
+    + `<text class="axis" x="${padL}" y="12">depth ($, cumulative)</text>`
+    + `<text class="axis" x="${(padL + X(0)) / 2}" y="${H - 6}" text-anchor="middle" fill="#6b7280">← sell ${symB} for ${symA}</text>`
+    + `<text class="axis" x="${(X(0) + W - padR) / 2}" y="${H - 6}" text-anchor="middle" fill="#6b7280">buy ${symB} with ${symA} →</text>`;
   const within = (arm, bp) => { const f = arm.filter(a => Math.abs(dev(a.price)) <= bp); return f.length ? Math.max(...f.map(a => a.cum)) : 0; };
-  const t = document.getElementById('curveTable');
-  t.innerHTML = `<tr><th>Within of peg</th><th>price band</th><th>sell-side depth</th><th>buy-side depth</th></tr>`
-    + [1, 2, 5, 10, 20].map(bp => `<tr><td>±${bp} bp</td>`
-      + `<td>${(1 - bp / 1e4).toFixed(4)} – ${(1 + bp / 1e4).toFixed(4)}</td>`
-      + `<td>${money(within(sellArm, bp))}</td><td>${money(within(buyArm, bp))}</td></tr>`).join('');
+  document.getElementById('depthTable').innerHTML = `<tr><th>Within of peg</th><th>price band</th><th>sell-side depth</th><th>buy-side depth</th></tr>`
+    + [1, 2, 5, 10, 20].map(bp => `<tr><td>±${bp} bp</td><td>${(1 - bp / 1e4).toFixed(4)} – ${(1 + bp / 1e4).toFixed(4)}</td><td>${money(within(sellArm, bp))}</td><td>${money(within(buyArm, bp))}</td></tr>`).join('');
 }
 
-// Prefill from URL query params (?rpc=…&pool=…) for shareable links
+// deep-link: ?rpc=…&pool=…
 const q = new URLSearchParams(location.search);
 for (const id of ['rpc', 'pool', 'tokenA', 'tokenB']) if (q.get(id)) document.getElementById(id).value = q.get(id);
 if (q.get('rpc') && q.get('pool')) document.getElementById('go').click();

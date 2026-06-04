@@ -6,7 +6,7 @@ Every team launching a new stablecoin hits the same wall: you need deep, reliabl
 
 A quick word on what "bootstrapping" means here. Usually it describes a project paying to *onboard* liquidity - emissions, a market-maker retainer, a listing deal. You can run this strategy that way too: instead of supplying the inventory yourself, you incentivise others to supply it. The nuance is *which* asset the incentives sit on - it's the asset you borrow to hand out (USDC or USDT), not your own stablecoin. Reward USDC/USDT lenders and you deepen the exact vault your exit liquidity is drawn from. But the more interesting route is to provide that inventory yourself, by LPing directly - and on EulerSwap that's cheap enough the incentive bill mostly disappears.
 
-Either way the mechanism is the same, and it falls straight out of how EulerSwap v2 works. EulerSwap is an automated market maker - a swap pool, like Uniswap - but it runs directly on top of Euler's lending vaults, so the same dollars can be collateral *and* trading liquidity at once. You manufacture exit liquidity out of a lending market, and the all-in cost can land around 2–3% a year. We'll use **RLUSD** as the worked example throughout - swap in your own stablecoin anywhere you see it.
+Either way the mechanism is the same, and it falls straight out of how EulerSwap v2 works. EulerSwap is an automated market maker - a swap pool, like Uniswap - but it runs directly on top of Euler's lending vaults, so the same dollars can be collateral *and* trading liquidity at once. You manufacture the exit liquidity - somewhere holders can reliably cash out - from a lending market, and the all-in cost can land around 1–2% a year. We'll use **RLUSD** as the worked example throughout - swap in your own stablecoin anywhere you see it.
 
 Here's the idea.
 
@@ -61,9 +61,13 @@ Your swap inventory stays untouched through all of it - it's sitting in escrow, 
 
 ## Squeeze it tighter
 
-EulerSwap v2 adds one more lever. You can bound your liquidity to a price range, the way Uniswap v3 users will recognize - but you can go further and shape concentrated, curve-style liquidity inside that range, not just a flat band. For a stablecoin pair you'd pin a tight range around $1 and concentrate everything there, so the same 10M of inventory delivers far more usable depth exactly where every trade happens. Same capital, dramatically more liquidity.
+EulerSwap v2 adds one more lever: you can concentrate your liquidity in a tight band where it's actually used, instead of spreading it thin across prices a $1 stablecoin will never reach. (Uniswap v3 users will recognise this as concentrated liquidity - here you can shape a full custom curve inside the band, not just a flat slice.) Pin that band around $1 and the same 10M of inventory delivers far more usable depth right where every trade happens. Same capital, dramatically more liquidity.
 
 ![Capital efficiency: 1M of stable collateral backs up to ~20× borrowing power, and v2 concentrates that depth in a tight band around $1](../assets/4-capital-efficiency.png)
+
+## And it plugs into Uniswap for free
+
+One more thing you get without lifting a finger: an EulerSwap pool is also a Uniswap v4 hook. It *is* a Uniswap v4 pool, with your custom stablecoin curve behind it. So the moment it's live, your liquidity is visible to Uniswap's own router and to every aggregator that routes through v4 - the order flow finds your pool on its own and competes for it on price. You don't integrate anywhere or chase a listing; you just show up in the routing that's already there.
 
 ## From a loop to a full lending market
 
