@@ -55,7 +55,7 @@ You can do better than a single-purpose loop. Let the borrowable USDC and RLUSD 
 
 ![The flywheel: outside collateral creates organic borrow demand, borrowers pay interest to lenders, lenders deepen the pool you borrow from, and people use your stablecoin](../assets/3-flywheel.png)
 
-The interest those borrowers pay flows to lenders, which makes supplying USDC genuinely attractive, pulls in real lenders, and deepens the very pool you borrow from. Your liquidity stops leaning on your own capital and starts riding a real, two-sided market. And just as importantly: people borrowing and using RLUSD is exactly the organic demand a new stablecoin is launched to create.
+The interest those borrowers pay flows to lenders, which makes supplying USDC genuinely attractive, pulls in real lenders, and deepens the very pool you borrow from. Your liquidity stops leaning on your own capital and starts riding a real, two-sided market. And just as importantly: people borrowing and using your stablecoin is exactly the organic demand a new launch is trying to create.
 
 Your swap inventory stays untouched through all of it - it's sitting in escrow, where the money market can't reach it.
 
@@ -67,7 +67,7 @@ EulerSwap v2 adds one more lever: you can concentrate your liquidity in a tight 
 
 ## And it plugs into Uniswap for free
 
-One more thing you get without lifting a finger: an EulerSwap pool is also a Uniswap v4 hook. It *is* a Uniswap v4 pool, with your custom stablecoin curve behind it. So the moment it's live, your liquidity is visible to Uniswap's own router and to every aggregator that routes through v4 - the order flow finds your pool on its own and competes for it on price. You don't integrate anywhere or chase a listing; you just show up in the routing that's already there.
+One more thing you get without lifting a finger: an EulerSwap pool is also a Uniswap v4 hook. It *is* a Uniswap v4 pool, with your custom stablecoin curve behind it. So the moment it's live, your liquidity is visible to Uniswap's own router and to aggregators that route through v4 - order flow can find your pool on its own and compete for it on price. You don't integrate anywhere or chase a listing; you just show up in the routing that's already there.
 
 ## From a loop to a full lending market
 
@@ -75,7 +75,7 @@ Once you're accepting outside collateral, you're not really running a stablecoin
 
 A production-grade version pairs several stablecoins - USDC, USDT and the one you're launching - all borrowable and all usable as collateral, against a real collateral set: cbBTC, WBTC, WETH, plus the ETH liquid-staking tokens wstETH and cbETH. WETH is borrowable too, which unlocks the most natural source of organic demand on-chain: someone deposits wstETH and borrows ETH against it at a high, correlated LTV (wstETH *is* staked ETH, so the position barely moves). Every one of those borrowers is paying interest into the same vaults your exit liquidity is funded from.
 
-That's the flywheel made concrete: RLUSD ships inside a money market people already want to use, and the borrow demand that market generates is what makes your liquidity cheap. The LST collateral, the BTC, the ETH borrowing - none of it can touch your swap inventory, which stays ring-fenced in escrow the whole time.
+That's the flywheel made concrete: your stablecoin ships inside a money market people already want to use, and the borrow demand that market generates is what makes your liquidity cheap. The LST collateral, the BTC, the ETH borrowing - none of it can touch your swap inventory, which stays ring-fenced in escrow the whole time.
 
 And here's the neat part if you do reach for incentives: they do double duty. The rewards that deepen your USDC/USDT supply are buying two things at once - the exit liquidity your pool borrows against, *and* the lending market itself. One spend bootstraps both. And once the market is deep, its own organic borrow demand and fees take over, so the incentives can taper off rather than becoming a permanent bill.
 
@@ -97,7 +97,9 @@ It's validated end-to-end against a mainnet fork: the liquid-staking cross-oracl
 
 ## Be honest about the risks
 
-This is a leveraged stable position, so treat it like one:
+First, the code. The Euler stack this builds on - EVK (the vaults), the EVC, and EulerSwap - is heavily audited by leading firms and has already processed billions in volume. The deploy scripts in *this* repo are not: they're experimental reference code, unaudited. Fork-test and get a security review of the exact script you'll run before committing real capital.
+
+And it's a leveraged stable position, so treat it like one:
 
 - If RLUSD depegs (trades below $1), your collateral drops while your debt doesn't. Size LTVs conservatively.
 - USDC borrow cost rises with utilization. Organic borrowers deepen the market but also compete for the same USDC, so keep the supply side healthy.
