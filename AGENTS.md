@@ -4,7 +4,7 @@ Coding-agent quickstart for this repo. Humans should start at [README.md](README
 
 ## What this repo is
 
-A worked, deployable Foundry example that bootstraps **deep stablecoin liquidity without a market maker**. It deploys an Aave/Spark-style **ungoverned (immutable) "mini market"** of Euler vaults with a customisable collateral set, then bootstraps one stablecoin (**RLUSD** in the default config) on top of it with an EulerSwap pool. The pool's swap inventory lives in collateral-only ESCROW vaults (ring-fenced — nothing can be borrowed out of them) while it borrows from the borrowable vaults. One script call deploys everything and renounces all governance. It's reference/deploy code, **unaudited**. The mechanism (the escrow trick, borrow-funded inventory, the mini-market flywheel) is explained with diagrams in [README.md](README.md).
+A worked, deployable Foundry example that bootstraps **deep stablecoin liquidity without a market maker**. It deploys an Aave/Spark-style **ungoverned (immutable) "mini market"** of Euler vaults with a customisable collateral set, then bootstraps one stablecoin (**RLUSD** in the default config) on top of it with an EulerSwap pool. The pool's swap inventory lives in collateral-only ESCROW vaults (ring-fenced — nothing can be borrowed out of them) while it borrows from the borrowable vaults. One script call deploys everything and renounces all governance. It's reference/deploy code, **unaudited**. The mechanism (collateral-only escrow vaults, borrow-funded inventory, the mini-market flywheel) is explained with diagrams in [README.md](README.md).
 
 ## First-time setup
 
@@ -25,7 +25,7 @@ forge build
 # Fork-LESS unit tests — NO RPC required (7 tests: _price1to1 + HookMiner)
 forge test --match-path "test/Unit.t.sol"
 
-# Fork tests — mainnet fork, RPC REQUIRED (2 tests: full deploy + a real swap)
+# Fork tests — mainnet fork, RPC REQUIRED (3 tests: full deploy, a real swap, a stale-feed revert)
 MAINNET_RPC_URL=https://... forge test --match-path "test/*.fork.t.sol" -vvv
 
 # Everything that doesn't need an RPC
@@ -35,7 +35,7 @@ forge test --no-match-path "test/*.fork.t.sol"
 forge test --match-test test_deploys_ungoverned_mini_market -vvv
 ```
 
-The fork test deploys the whole mini market and asserts: every borrowable vault is ungoverned and has its own IRM, the full collateral/LTV matrix is wired, the cross/Lido oracles actually price (wstETH, cbETH, WBTC), inventory sits in the escrows, the operator is installed, the pool quotes ~1:1 minus fee, and a real swap moves inventory through the escrow vaults with no debt taken on.
+The fork test deploys the whole mini market and asserts: every borrowable vault is ungoverned and has its own IRM, the full collateral/LTV matrix is wired, the cross/Lido oracles actually price (wstETH, cbETH, WBTC), inventory sits in the escrows, the operator is installed, the pool quotes ~1:1 minus fee, and a real swap moves inventory through the escrow vaults with no debt taken on. A third test confirms a crypto feed's quote reverts once past its staleness window.
 
 ## Deploy (broadcast)
 
@@ -90,7 +90,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 - **`deployPool` routed through the EVC.** Wrapped in `evc.call(factory, eulerAccount, ...)` because the factory authenticates `_msgSender() == eulerAccount`. Don't call the factory directly.
 - **Pool address must encode the V4 hook flags.** The salt is mined (`HookMiner.find`) so the address carries `EULERSWAP_FLAGS` in its low 14 bits. Don't deploy with an unmined salt — it reverts `HookAddressNotValid`.
 - **Unleveraged by default.** `equilibriumReserve == seed` and `minReserve == 0`, so a swap only draws inventory down to zero — it **never borrows**. To run leveraged inventory you must raise the equilibrium reserves above the deposited seed AND ensure the borrowable vaults have lender liquidity.
-- **Ungoverned == immutable.** `EdgeFactory` renounces all governance (vaults + router). Nothing can be changed after deployment — calibrate everything before mainnet.
+- **Ungoverned == immutable.** `EdgeFactory` renounces all governance (vaults + router). Nothing can be changed after deployment — calibrate everything before mainnet. See the `SECURITY CONSIDERATIONS` header in `BootstrapMarketBase.sol` (and the walkthrough) for the permanent-risk checklist: fixed-$1 RLUSD oracle, passive pool, no caps, wrapped/LST pricing, deployer still owns the pool.
 
 ## Common tasks
 
@@ -107,11 +107,12 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 - **Cross/LST oracle wiring is subtle** — wstETH and cbETH price through a two-hop `CrossAdapter` (asset → WETH → USD). Verify the Lido/cbETH adapters and the shared WETH adapter; the fork test sanity-checks the resulting USD prices.
 - **Changing the collateral set is multi-file** — see "Add/remove a collateral asset"; missing one layer either reverts (`k == 31`) or mis-wires a vault.
 - **Default feeds/addresses are mainnet placeholders** — verify everything before broadcasting; the deploy is immutable.
-- **`FEED_STALENESS` is a uniform 24h** across all feeds — lenient; tighten for volatile collateral if you care.
+- **Oracle staleness is per-feed** — `STALE_CRYPTO` (3h, ETH/BTC), `STALE_USD`/`STALE_LST_RATE` (25h). It's heartbeat + buffer: a window set *below* a feed's real heartbeat bricks it permanently in an immutable market, so don't over-tighten.
+- **Pool isn't registered.** The script deploys + activates the pool but doesn't `registerPool` in the `EulerSwapRegistry` (separate step, needs an ETH validity bond). Not required for swaps or v4 routing, but integrators prefer registered pools. See [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md#registration-is-a-separate-optional-step).
 
 ## Where to read more, in order
 
-1. [README.md](README.md) — the idea, the escrow trick, the mini-market framing, diagrams, the parameter table, and the risks.
+1. [README.md](README.md) — the idea, the collateral-only vaults, the mini-market framing, diagrams, the parameter table, and the risks.
 2. [script/BootstrapMarketBase.sol](script/BootstrapMarketBase.sol) — constants first, then `deployMarket` → `_vaults`/`_adapters`/`_ltvs` → `_deployPool`.
 3. [test/DeployBootstrapMarket.fork.t.sol](test/DeployBootstrapMarket.fork.t.sol) — the clearest worked example of the end-to-end flow and what "correct" looks like.
 4. [src/Interfaces.sol](src/Interfaces.sol) — the Euler surface area the deploy actually touches.

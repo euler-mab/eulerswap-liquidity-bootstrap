@@ -26,11 +26,11 @@ There's a much cheaper way, and it falls straight out of how EulerSwap works.
 
 ## Liquidity is just borrowed inventory
 
-When someone holding your stablecoin (call it USDnew) wants out, what they actually need
-is USDC on the other side of the trade. That's it. Deep liquidity for USDnew→USDC is
+When someone holding RLUSD wants out, what they actually need
+is USDC on the other side of the trade. That's it. Deep liquidity for RLUSD→USDC is
 really just a question of having USDC inventory ready to hand out.
 
-And the cheapest USDC inventory in the world is *borrowed* USDC. If USDnew is solid
+And the cheapest USDC inventory in the world is *borrowed* USDC. If RLUSD is solid
 collateral, borrowing USDC against it costs roughly **3–4% a year** at today's rates.
 That borrow rate is your cost of liquidity — and because every swap pays you a fee,
 1–2% in swap fees nets you down to **~1–2% a year**. Self-custodied, on-chain, yours.
