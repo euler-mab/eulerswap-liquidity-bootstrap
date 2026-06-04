@@ -102,21 +102,22 @@ builds the whole thing and renounces all governance. Two layers:
 
 ### Assets
 
-| Asset | Borrowable? | Collateral (escrow)? | Role |
-|-------|:-----------:|:--------------------:|------|
+| Asset | Borrowable? | Collateral? | Role |
+|-------|:-----------:|:-----------:|------|
 | USDC  | ✅ | ✅ | Core stable + the pool's other leg |
 | USDT  | ✅ | ✅ | Core stable |
 | **RLUSD** | ✅ | ✅ | The stablecoin being bootstrapped |
 | WETH  | ✅ | ✅ | Borrowable so LSTs can lever into ETH |
-| cbBTC | — | ✅ | BTC collateral |
-| WBTC  | — | ✅ | BTC collateral |
+| cbBTC | ✅ | ✅ | BTC — borrowable and collateral |
+| WBTC  | ✅ | ✅ | BTC — borrowable and collateral |
 | wstETH | — | ✅ | Lido LST collateral |
 | cbETH | — | ✅ | Coinbase LST collateral |
 
-The stables are borrowable **and** usable as collateral, which is what powers both the
-self-loop (deposit USDC, borrow USDC to build inventory) and the cross (borrow RLUSD
-against USDC). Editing this set is the "customisable collateral at deploy" knob — add or
-drop assets in the vault, adapter and LTV lists.
+Six assets are borrowable (USDC/USDT/RLUSD/WETH/cbBTC/WBTC); wstETH and cbETH are
+collateral-only. Every asset also gets a collateral-only **escrow** vault, and every
+borrowable (yield-bearing) form counts as collateral too — so a depositor earns lending
+interest and can still borrow against the position. Editing this set is the "customisable
+collateral at deploy" knob — add or drop assets in the vault, adapter and LTV lists.
 
 ### Pricing each asset
 
@@ -152,6 +153,7 @@ right tool. Per-vault instances let each asset run its own curve:
 |-------|---------------------------|--------|-----------|------------|
 | USDC, USDT, RLUSD | 4% APR | 0.1%–200% | 4× | 50/yr |
 | WETH | 2.5% APR | 0.1%–200% | 4× | 50/yr |
+| cbBTC, WBTC | 1% APR | 0.1%–200% | 4× | 50/yr |
 
 (Rates are WAD-per-second under the hood; the constants read as `Xe18 / YEAR` = X APR.)
 
@@ -159,30 +161,37 @@ right tool. Per-vault instances let each asset run its own curve:
 
 Loan-to-value is set per (collateral → controller) pair. Rows are what you **deposit**,
 columns are what you can **borrow** against it; each cell is **borrow LTV / liquidation
-LTV** (`—` = not accepted as collateral for that asset). Only USDC, USDT, RLUSD and WETH
-are borrowable, so those are the only columns.
+LTV**. The six borrowable assets (USDC, USDT, RLUSD, WETH, cbBTC, WBTC) are the columns;
+wstETH/cbETH are collateral-only. The LTV is chosen by *risk tier* (`_tierLTV`), so the
+escrow and borrowable forms of an asset share a number:
 
-| Deposit ↓ \ Borrow → | USDC | USDT | RLUSD | WETH |
-|----------------------|:---------:|:---------:|:---------:|:-------------:|
-| **USDC**   | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 |
-| **USDT**   | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 |
-| **RLUSD**  | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 |
-| **cbBTC**  | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | 0.78/0.83 |
-| **WBTC**   | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | 0.78/0.83 |
-| **WETH**   | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | — |
-| **wstETH** | 0.85/0.87 | 0.85/0.87 | 0.85/0.87 | **0.94/0.95** |
-| **cbETH**  | 0.85/0.87 | 0.85/0.87 | 0.85/0.87 | **0.94/0.95** |
+| Deposit ↓ \ Borrow → | USDC | USDT | RLUSD | WETH | cbBTC | WBTC |
+|----------------------|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|
+| **USDC**   | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 |
+| **USDT**   | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 |
+| **RLUSD**  | 0.95/0.96 | 0.95/0.96 | 0.95/0.96 | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 |
+| **cbBTC**  | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | **0.90/0.92** | **0.90/0.92** |
+| **WBTC**   | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | **0.90/0.92** | **0.90/0.92** |
+| **WETH**   | 0.80/0.85 | 0.80/0.85 | 0.80/0.85 | **0.90/0.92** | 0.80/0.85 | 0.80/0.85 |
+| **wstETH** | 0.85/0.87 | 0.85/0.87 | 0.85/0.87 | **0.94/0.95** | 0.80/0.85 | 0.80/0.85 |
+| **cbETH**  | 0.85/0.87 | 0.85/0.87 | 0.85/0.87 | **0.94/0.95** | 0.80/0.85 | 0.80/0.85 |
 
 The shape, in words:
 
 - **Stables back stables at 0.95** — the diagonal is the self-loop (USDC→USDC) and the
   off-diagonal is the cross (RLUSD→USDC) that the bootstrap relies on.
-- **BTC, ETH and the LSTs back stables** at 0.80–0.85 — this is the organic borrow demand.
-- **wstETH / cbETH back WETH at 0.94** — the classic staked-ETH leverage play: deposit
-  wstETH, borrow WETH, and the position barely moves because wstETH *is* staked ETH.
+- **Same-class volatiles at 0.90** — BTC↔BTC (cbBTC/WBTC) and WETH↔WETH are correlated, so
+  they back each other higher than an unlike cross.
+- **wstETH / cbETH back WETH at 0.94** — the staked-ETH leverage play: deposit wstETH,
+  borrow WETH, and the position barely moves because wstETH *is* staked ETH. (LSTs back
+  stables at 0.85.)
+- **Every other cross sits at 0.80/0.85** — BTC/ETH↔stables, BTC↔WETH, LST↔BTC: the
+  organic borrow demand.
 
-These tiers live as named constants (`LTV_STABLE_*`, `LTV_VOL_*`, `LTV_LST_ETH_*`, …) and
-are informed by Euler's own mainnet PrimeCluster.
+These tiers live as named constants (`LTV_STABLE_*`, `LTV_VOL_*`, `LTV_SELF_*`,
+`LTV_LST_ETH_*`, `LTV_LST_STABLE_*`) and are informed by Euler's own mainnet PrimeCluster.
+The table shows the escrow rows; every borrowable form carries the same numbers as its
+escrow twin (minus the self-pair, which can't collateralise its own controller).
 
 The deploy script (and the fork test) print this matrix **read back from the live vaults**
 via `logLTVMatrix` — so what you see on a run is the on-chain truth, not a copy that can
@@ -190,15 +199,15 @@ drift from the code:
 
 ```
 === On-chain LTV matrix (borrow/liq, percent) | deposit row x borrow column ===
-deposit  USDC    USDT    RLUSD   WETH
-USDC     95/96   95/96   95/96   80/85
-USDT     95/96   95/96   95/96   80/85
-RLUSD    95/96   95/96   95/96   80/85
-cbBTC    80/85   80/85   80/85   78/83
-WBTC     80/85   80/85   80/85   78/83
-WETH     80/85   80/85   80/85   -
-wstETH   85/87   85/87   85/87   94/95
-cbETH    85/87   85/87   85/87   94/95
+deposit  USDC    USDT    RLUSD   WETH    cbBTC   WBTC
+USDC     95/96   95/96   95/96   80/85   80/85   80/85
+USDT     95/96   95/96   95/96   80/85   80/85   80/85
+RLUSD    95/96   95/96   95/96   80/85   80/85   80/85
+cbBTC    80/85   80/85   80/85   80/85   90/92   90/92
+WBTC     80/85   80/85   80/85   80/85   90/92   90/92
+WETH     80/85   80/85   80/85   90/92   80/85   80/85
+wstETH   85/87   85/87   85/87   94/95   80/85   80/85
+cbETH    85/87   85/87   85/87   94/95   80/85   80/85
 ```
 
 ### Ungoverned by construction

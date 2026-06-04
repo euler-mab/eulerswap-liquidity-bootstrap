@@ -67,7 +67,7 @@ PRIVATE_KEY=0x... MAINNET_RPC_URL=https://... forge script \
 - **Borrowable (controllers, own IRM each):** `USDC`, `USDT`, `STABLE` (RLUSD), `WETH`, `cbBTC`, `WBTC`. Stables 4% APR-at-target, WETH 2.5%, BTC 1%. Each borrowable vault **also doubles as yield-bearing collateral** (a depositor pledges the interest-earning eVault share).
 - **Collateral-only (escrow):** `USDC`, `USDT`, `STABLE`, `WETH`, `cbBTC`, `WBTC`, `wstETH`, `cbETH`. "Escrow" = collateral that can't be lent out (non-rehypothecated) — the opt-out, and where the swap inventory *must* live. wstETH/cbETH are escrow-only.
 - **Oracles → USD:** Chainlink for USDC/USDT/cbBTC/WBTC/WETH; `FixedRateOracle($1)` for RLUSD; `CrossAdapter` for wstETH (LidoFundamental → WETH → USD) and cbETH (Chainlink cbETH/ETH → WETH → USD), mirroring Euler's PrimeCluster.
-- **LTV matrix (63 vault-level pairs, by risk tier — see `_tierLTV`):** stable↔stable 0.95/0.96 · WETH→WETH & BTC→BTC self-correlated 0.90/0.92 · LST→stable 0.85/0.87 · LST→WETH 0.94/0.95 · every other cross 0.80/0.85. Escrow and borrowable forms of an asset share a number; a vault never collateralises its own controller.
+- **LTV matrix (78 vault-level pairs, by risk tier — see `_tierLTV`):** stable↔stable 0.95/0.96 · WETH→WETH & BTC→BTC self-correlated 0.90/0.92 · LST→stable 0.85/0.87 · LST→WETH 0.94/0.95 · every other cross 0.80/0.85. Escrow and borrowable forms of an asset share a number; a vault never collateralises its own controller.
 - **EulerSwap pool:** pairs `USDC` with `STABLE`; inventory in the two stable escrows, debt in the two stable borrowables. RLUSD (`0x82…`) sorts below USDC (`0xA0…`), so **RLUSD is token0**.
 
 ## Conventions

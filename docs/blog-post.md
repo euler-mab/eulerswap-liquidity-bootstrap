@@ -91,7 +91,7 @@ This isn't hypothetical. There's a complete, fork-tested reference implementatio
 
 → **[github.com/euler-mab/eulerswap-liquidity-bootstrap](https://github.com/euler-mab/eulerswap-liquidity-bootstrap)**
 
-A single Foundry script deploys the entire thing in one transaction - the ungoverned mini-market (USDC/USDT/RLUSD/WETH borrowable; cbBTC, WBTC, WETH, wstETH and cbETH as collateral; a reactive IRM per vault; all governance renounced) and a USDC/RLUSD EulerSwap pool seeded with inventory on top. It uses RLUSD as the worked example; pointing it at your own stablecoin is a one-line change.
+A single Foundry script deploys the entire thing in one transaction - the ungoverned mini-market (USDC/USDT/RLUSD/WETH/cbBTC/WBTC borrowable and collateral; wstETH and cbETH collateral-only; a reactive IRM per vault; all governance renounced) and a USDC/RLUSD EulerSwap pool seeded with inventory on top. It uses RLUSD as the worked example; pointing it at your own stablecoin is a one-line change.
 
 It's validated end-to-end against a mainnet fork: the liquid-staking cross-oracles price correctly (wstETH ≈ $2,245, cbETH ≈ $2,055), the pool quotes 100,000 USDC → 99,988.89 RLUSD, and a real swap settles out of the ring-fenced escrow inventory with zero debt. The [walkthrough](https://github.com/euler-mab/eulerswap-liquidity-bootstrap/blob/main/docs/WALKTHROUGH.md) has the full architecture.
 

@@ -297,35 +297,35 @@ abstract contract BootstrapMarketBase is Script {
         );
     }
 
-    /// @dev Collateral -> controller LTVs. Every collateral vault (the 8 escrows plus the
-    ///      borrowable WETH/cbBTC/WBTC forms, which double as yield-bearing collateral) is
-    ///      wired to every one of the 6 controllers, except a vault collateralising itself.
-    ///      The LTV is looked up by risk tier in _tierLTV(), so escrow and borrowable forms
-    ///      of the same asset share a number. 11 collateral vaults x 6 controllers - 3
-    ///      self-pairs = 63.
+    /// @dev Collateral -> controller LTVs. Every collateral vault — the 8 escrows AND all 6
+    ///      borrowable forms (which double as yield-bearing collateral) — is wired to every
+    ///      one of the 6 controllers, except a vault collateralising itself. The LTV is
+    ///      looked up by risk tier in _tierLTV(), so the escrow and borrowable forms of the
+    ///      same asset share a number. 14 collateral vaults x 6 controllers - 6 self = 78.
     function _ltvs() internal pure returns (IEdgeFactory.LTVParams[] memory lp) {
-        uint256[11] memory cVault = [
-            ESC_USDC, ESC_USDT, ESC_STABLE, // stables (escrow)
+        uint256[14] memory cVault = [
+            ESC_USDC, BORROW_USDC, ESC_USDT, BORROW_USDT, ESC_STABLE, BORROW_STABLE, // stables (escrow + borrowable)
             ESC_WETH, BORROW_WETH, // WETH (escrow + borrowable)
             ESC_CBBTC, BORROW_CBBTC, ESC_WBTC, BORROW_WBTC, // BTC (escrow + borrowable)
-            ESC_WSTETH, ESC_CBETH // LSTs (escrow)
+            ESC_WSTETH, ESC_CBETH // LSTs (escrow-only)
         ];
-        uint8[11] memory cTier =
-            [TIER_S, TIER_S, TIER_S, TIER_W, TIER_W, TIER_B, TIER_B, TIER_B, TIER_B, TIER_L, TIER_L];
+        uint8[14] memory cTier = [
+            TIER_S, TIER_S, TIER_S, TIER_S, TIER_S, TIER_S, TIER_W, TIER_W, TIER_B, TIER_B, TIER_B, TIER_B, TIER_L, TIER_L
+        ];
         uint256[6] memory ctrl =
             [BORROW_USDC, BORROW_USDT, BORROW_STABLE, BORROW_WETH, BORROW_CBBTC, BORROW_WBTC];
         uint8[6] memory ctrlTier = [TIER_S, TIER_S, TIER_S, TIER_W, TIER_B, TIER_B];
 
-        lp = new IEdgeFactory.LTVParams[](63);
+        lp = new IEdgeFactory.LTVParams[](78);
         uint256 k;
-        for (uint256 i; i < 11; ++i) {
+        for (uint256 i; i < 14; ++i) {
             for (uint256 j; j < 6; ++j) {
                 if (cVault[i] == ctrl[j]) continue; // a vault can't collateralise itself
                 (uint16 b, uint16 l) = _tierLTV(cTier[i], ctrlTier[j]);
                 lp[k++] = _ltv(cVault[i], ctrl[j], b, l);
             }
         }
-        require(k == 63, "ltv count");
+        require(k == 78, "ltv count");
     }
 
     /// @dev LTV for a (collateral tier -> borrow tier) pair. LSTs are never a borrow tier.
@@ -486,8 +486,8 @@ abstract contract BootstrapMarketBase is Script {
                 "WBTC"
             )
         );
-        // Rows are the escrow forms; the borrowable WETH/cbBTC/WBTC collateral forms carry
-        // the same LTVs (minus the self-pair, which can't collateralise its own controller).
+        // Rows are the escrow forms; every borrowable form carries the same LTVs as its
+        // escrow twin (minus the self-pair, which can't collateralise its own controller).
         _logLTVRow("USDC", d.escrowUSDC, ctrl);
         _logLTVRow("USDT", d.escrowUSDT, ctrl);
         _logLTVRow("RLUSD", d.escrowStable, ctrl);
