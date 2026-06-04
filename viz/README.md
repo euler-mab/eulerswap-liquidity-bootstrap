@@ -3,15 +3,19 @@
 A single self-contained HTML page that renders the bootstrap market the way a lending-market
 explorer would, plus the one thing those don't show — the EulerSwap liquidity depth:
 
+Three tabs:
+
 - **Graph** — the assets as nodes, with every collateral → borrowable LTV relationship as an
   edge (click an asset to isolate its edges). Borrowable assets are filled, collateral-only
   escrows are outlined, and the two EulerSwap inventory legs (USDC + the stable) are ringed.
 - **Matrix** — the full collateral × borrowable LTV grid (borrow / liquidation), i.e. the 31
   pairs wired by `_ltvs()`.
-- **Liquidity depth** — dollars available vs execution price, centred on the $1 peg (live).
+- **Pool** — paste an RPC + the deployed pool address here to load live reserves and the
+  **liquidity depth** chart: cumulative dollars vs execution price, centred on the $1 peg
+  (a sleeker take on a Uniswap depth chart — green sells, red buys, the swap fee as the spread).
 
-The **Graph and Matrix render offline** from the market structure. Connect an RPC + the
-deployed pool to add the **live pool state** and the **depth curve**.
+The **Graph and Matrix render offline** from the market structure; only the **Pool** tab needs
+a connection.
 
 No build, no server, no `node_modules` — [`index.html`](index.html) pulls `viem` from a CDN
 and runs entirely in the browser. Light theme, read-only: it never sends a transaction.
@@ -24,7 +28,7 @@ open viz/index.html                     # macOS — or just double-click the fil
 python3 -m http.server -d viz 8080      # then open http://localhost:8080
 ```
 
-Then fill in:
+The Graph and Matrix show immediately. For live data, open the **Pool** tab and fill in:
 
 | Field | Notes |
 |---|---|
@@ -32,7 +36,7 @@ Then fill in:
 | **Pool address** | The EulerSwap pool address logged by the deploy script (`EulerSwap pool:`). |
 | **USDC / stable** | Prefilled with USDC + RLUSD; change if you bootstrapped a different pair. |
 
-The **architecture panel renders without a connection** (it's the static market shape from
+The **Graph and Matrix render without a connection** (the static market shape from
 `BootstrapMarketBase`). The **live state** and **depth chart** appear once a reachable RPC +
 deployed pool are loaded. You can also deep-link: `index.html?rpc=…&pool=0x…` auto-loads.
 

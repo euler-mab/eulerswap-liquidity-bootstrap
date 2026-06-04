@@ -226,7 +226,7 @@ function renderGraph(sel = null) {
     const on = isOn(e), col = on ? '#15161a' : '#e6e8ec', w = on ? (0.6 + e.bl * 1.8) : 0.8, op = on ? (sel ? 0.9 : 0.32) : 0.5;
     if (e.c === e.b) {
       const p = pos[e.c], dx = (p.x - GCx), dy = (p.y - GCy), len = Math.hypot(dx, dy) || 1;
-      const ox = p.x + (dx / len) * 26, oy = p.y + (dy / len) * 26;
+      const ox = p.x + (dx / len) * 28, oy = p.y + (dy / len) * 28;
       return `<circle cx="${ox.toFixed(1)}" cy="${oy.toFixed(1)}" r="10" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}" />`;
     }
     const a = pos[e.c], b = pos[e.b];
@@ -236,11 +236,10 @@ function renderGraph(sel = null) {
     const p = pos[n.sym], dim = sel && n.sym !== sel && !EDGES.some(e => isOn(e) && (e.c === n.sym || e.b === n.sym));
     const fill = n.borrow ? '#15161a' : '#ffffff', stroke = n.inv ? '#15161a' : (n.borrow ? '#15161a' : '#aeb4be');
     const sw = n.inv ? 2.4 : 1.4, txt = n.borrow ? '#ffffff' : '#15161a';
-    const top = p.y < GCy, labelY = top ? p.y - 34 : p.y + 42, noteY = top ? labelY - 12 : labelY + 12;
+    const noteY = p.y < GCy ? p.y - 40 : p.y + 44;
     return `<g opacity="${dim ? 0.28 : 1}" style="cursor:pointer" data-sym="${n.sym}">`
-      + `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="24" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />`
-      + `<text x="${p.x.toFixed(1)}" y="${(p.y + 3).toFixed(1)}" text-anchor="middle" fill="${txt}" style="font-size:8.5px;font-weight:600;font-family:var(--mono)">${n.sym}</text>`
-      + `<text class="node-label" x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">${n.sym}</text>`
+      + `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="27" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />`
+      + `<text x="${p.x.toFixed(1)}" y="${(p.y + 3.5).toFixed(1)}" text-anchor="middle" fill="${txt}" style="font-size:9.5px;font-weight:600;font-family:var(--mono)">${n.sym}</text>`
       + (n.note ? `<text class="node-sub" x="${p.x.toFixed(1)}" y="${noteY.toFixed(1)}" text-anchor="middle">${n.note}</text>` : '')
       + `</g>`;
   }).join('');
