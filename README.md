@@ -12,8 +12,7 @@ collateral set — and then bootstraps liquidity for one stablecoin on top of it
 EulerSwap. The example bootstraps **RLUSD** (paired with USDC, alongside USDT as a core
 asset); change one constant to bootstrap your own. Validated end-to-end on a mainnet fork.
 
-> ⚠️ **Experimental, unaudited reference code.** Verify every address and parameter,
-> fork-test, and get a review before risking real funds. See [Risks](#risks).
+> ⚠️ **The deploy recipe in this repo is experimental and unaudited.** The Euler substrate underneath (EulerSwap, EVK, EVC) is audited and battle-tested — this isn't. Fork it, learn from it, **get a security review before deploying with real capital**. No warranty. See [Risks](#risks) for the specific ways this can go wrong.
 
 📖 **Want the full story?** The [**walkthrough**](docs/WALKTHROUGH.md) covers the strategy
 *and* a technical deep-dive on everything deployed; the [**blog post**](docs/blog-post.md)
