@@ -366,6 +366,14 @@ abstract contract BootstrapMarketBase is Script {
             EULERSWAP_FACTORY, eulerAccount, 0, abi.encodeCall(IEulerSwapFactory.deployPool, (s, dp, init, salt))
         );
         require(abi.decode(res, (address)) == pool, "pool address mismatch");
+
+        // NOTE: the pool is deployed + activated but NOT registered in the
+        // EulerSwapRegistry. Registration is a separate, optional step
+        // (`registerPool{value: bond}` by the eulerAccount) — not required for swaps or
+        // Uniswap v4 routing, but integrators prefer registered pools (bonded, validity-
+        // checked, and dead/broken pools get challenged out). It needs a native validity
+        // bond and the vaults to pass the registry's validVaultPerspective. See
+        // docs/WALKTHROUGH.md "Registration is a separate, optional step".
     }
 
     // ───────────────────────────── helpers ─────────────────────────────────────

@@ -105,6 +105,12 @@ In one `deployMarket(...)` call:
 All addresses, feeds, the collateral set, LTV tiers, IRM and curve parameters live in
 clearly-labelled constants in [`BootstrapMarketBase.sol`](script/BootstrapMarketBase.sol).
 
+> **Not registered.** The script deploys and *activates* the pool but doesn't register it
+> in the `EulerSwapRegistry` — a separate, optional step that needs a validity bond. It's
+> not required for swaps or Uniswap v4 routing, but **integrators prefer registered pools**
+> (bonded, validity-checked, with dead pools challenged out). See the
+> [walkthrough](docs/WALKTHROUGH.md#registration-is-a-separate-optional-step).
+
 ---
 
 ## Run it

@@ -227,6 +227,33 @@ worth knowing:
   is authorized as an EVC operator for the LP account *before* deployment, so the script
   predicts the address, calls `setAccountOperator`, then deploys.
 
+### Registration is a separate, optional step
+
+The script deploys and *activates* the pool but does **not** register it in the
+`EulerSwapRegistry`, and registration is not needed for the pool to work:
+
+- **Swaps work without it** — `EulerSwapPeriphery` (and a direct `swap`) never consult the
+  registry.
+- **Uniswap v4 routing works without it** — that comes from `activate()` initialising the
+  v4 pool, independent of the EulerSwap registry.
+
+Registration (`EulerSwapRegistry.registerPool{value: bond}(pool)`, called by the
+`eulerAccount`) makes the pool **discoverable inside EulerSwap's ecosystem** (the EulerSwap
+UI and registry-indexing routers) and enrols it in the validity-bond / challenge mechanism.
+That mechanism is exactly why **integrators prefer registered pools**: the bond plus
+on-chain validity checks signal the pool actually works, and anyone can challenge a dead or
+broken pool to claim its bond — so the registry stays curated of live, functioning pools.
+So while registration is optional for the pool to *function*, in practice you'll want to
+register if you want aggregators and routers to pick up your liquidity. Two things to know
+before relying on it:
+
+- it requires a **native-token validity bond** (`>= minimumValidityBond`), so a reference
+  script shouldn't do it unconditionally; and
+- the registry checks every supply/borrow vault against its curator-set
+  `validVaultPerspective` (`isVerified`). A bespoke market's vaults must satisfy that
+  perspective or `registerPool` reverts with `InvalidVaultImplementation` — verify on a
+  fork before counting on it.
+
 ### Asset ordering and the 1:1 price
 
 EulerSwap requires `asset0 < asset1` by address. RLUSD (`0x82…`) sorts *below* USDC
