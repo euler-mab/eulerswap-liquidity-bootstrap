@@ -1,5 +1,8 @@
 /out/
 /cache/
 /broadcast/
+# gitignore .env exactly, NOT .env* — a glob would also catch .env.example and
+# silently break the `cp .env.example .env` quickstart on a fresh clone.
 .env
+.env.local
 .DS_Store
